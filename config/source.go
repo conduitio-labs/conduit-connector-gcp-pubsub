@@ -15,8 +15,6 @@
 package config
 
 import (
-	"strconv"
-
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 )
@@ -25,7 +23,6 @@ import (
 type Source struct {
 	general
 	SubscriptionID string `validate:"omitempty,object_name"`
-	EnableOrdering bool
 }
 
 // ParseSource parses GCP Pub/Sub source configuration into a Config struct.
@@ -38,15 +35,6 @@ func ParseSource(cfg map[string]string) (Source, error) {
 	sourceConfig := Source{
 		general:        config,
 		SubscriptionID: cfg[models.ConfigSubscriptionID],
-	}
-
-	if cfg[models.ConfigEnableOrdering] != "" {
-		enableOrdering, err := strconv.ParseBool(cfg[models.ConfigEnableOrdering])
-		if err != nil {
-			return Source{}, validator.InvalidBoolErr(models.ConfigEnableOrdering)
-		}
-
-		sourceConfig.EnableOrdering = enableOrdering
 	}
 
 	err = validator.Validate(sourceConfig)

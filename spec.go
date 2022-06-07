@@ -54,11 +54,6 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "GCP Pub/Sub subscription id key.",
 			},
-			models.ConfigEnableOrdering: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub enable ordering key.",
-			},
 		},
 		DestinationParams: map[string]sdk.Parameter{},
 	}

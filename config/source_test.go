@@ -38,7 +38,6 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigTopicID:        "test-T.o~pic_123+%",
 				models.ConfigSubscriptionID: "test-SUb.scription~%_1230+",
-				models.ConfigEnableOrdering: "true",
 			},
 			want: Source{
 				general: general{
@@ -48,7 +47,6 @@ func TestParseSource(t *testing.T) {
 					TopicID:     "test-T.o~pic_123+%",
 				},
 				SubscriptionID: "test-SUb.scription~%_1230+",
-				EnableOrdering: true,
 			},
 		},
 		{
@@ -100,19 +98,6 @@ func TestParseSource(t *testing.T) {
 			},
 			wantErr:     true,
 			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
-		},
-		{
-			name: "enable ordering is not a bool",
-			in: map[string]string{
-				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail:    "test@test-pubsub.com",
-				models.ConfigProjectID:      "test-pubsub",
-				models.ConfigTopicID:        "test-topic",
-				models.ConfigSubscriptionID: "test-subscription",
-				models.ConfigEnableOrdering: "validator.Invalid-bool",
-			},
-			wantErr:     true,
-			expectedErr: validator.InvalidBoolErr(models.ConfigEnableOrdering).Error(),
 		},
 	}
 

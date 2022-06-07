@@ -29,9 +29,6 @@ const (
 
 	// ConfigSubscriptionID is the configuration name for GCP Pub/Sub subscription ID.
 	ConfigSubscriptionID = "subscriptionID"
-
-	// ConfigEnableOrdering is the configuration name for GCP Pub/Sub enable ordering.
-	ConfigEnableOrdering = "enableOrdering"
 )
 
 // ConfigKeyName returns a configuration key name by struct field.
