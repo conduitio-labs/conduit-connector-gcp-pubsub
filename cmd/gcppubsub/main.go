@@ -16,9 +16,10 @@ package main
 
 import (
 	gcppubsub "github.com/conduitio/conduit-connector-gcp-pubsub"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/source"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
 func main() {
-	sdk.Serve(gcppubsub.Specification, nil, nil)
+	sdk.Serve(gcppubsub.Specification, source.NewSource, nil)
 }

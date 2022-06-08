@@ -24,9 +24,6 @@ const (
 	// ConfigProjectID is the configuration name for GCP Pub/Sub project ID.
 	ConfigProjectID = "projectID"
 
-	// ConfigTopicID is the configuration name for GCP Pub/Sub topic ID.
-	ConfigTopicID = "topicID"
-
 	// ConfigSubscriptionID is the configuration name for GCP Pub/Sub subscription ID.
 	ConfigSubscriptionID = "subscriptionID"
 )
@@ -37,7 +34,6 @@ func ConfigKeyName(fieldName string) string {
 		"PrivateKey":     ConfigPrivateKey,
 		"ClientEmail":    ConfigClientEmail,
 		"ProjectID":      ConfigProjectID,
-		"TopicID":        ConfigTopicID,
 		"SubscriptionID": ConfigSubscriptionID,
 	}[fieldName]
 }

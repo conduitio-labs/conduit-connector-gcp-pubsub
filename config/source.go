@@ -22,7 +22,7 @@ import (
 // A Source represents the source configuration needed for GCP Pub/Sub.
 type Source struct {
 	general
-	SubscriptionID string `validate:"omitempty,object_name"`
+	SubscriptionID string `validate:"required,object_name"`
 }
 
 // ParseSource parses GCP Pub/Sub source configuration into a Config struct.
