@@ -12,30 +12,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package config
+package source
 
 import (
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"context"
+
+	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
+	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-type general struct {
-	PrivateKey  string `validate:"required"`
-	ClientEmail string `validate:"required,email"`
-	ProjectID   string `validate:"required"`
+// A Source represents the source connector.
+type Source struct {
+	sdk.UnimplementedSource
+	cfg config.Source
 }
 
-func parseGeneral(cfg map[string]string) (general, error) {
-	config := general{
-		PrivateKey:  cfg[models.ConfigPrivateKey],
-		ClientEmail: cfg[models.ConfigClientEmail],
-		ProjectID:   cfg[models.ConfigProjectID],
-	}
+// NewSource initialises a new source.
+func NewSource() sdk.Source {
+	return &Source{}
+}
 
-	err := validator.Validate(config)
+// Configure parses and stores configurations, returns an error in case of invalid configuration.
+func (s *Source) Configure(ctx context.Context, cfgRaw map[string]string) error {
+	cfg, err := config.ParseSource(cfgRaw)
 	if err != nil {
-		return general{}, err
+		return err
 	}
 
-	return config, nil
+	s.cfg = cfg
+
+	return nil
 }

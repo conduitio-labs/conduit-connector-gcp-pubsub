@@ -44,11 +44,6 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "GCP Pub/Sub project id key.",
 			},
-			models.ConfigTopicID: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub topic id key.",
-			},
 			models.ConfigSubscriptionID: {
 				Default:     "",
 				Required:    true,

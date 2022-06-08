@@ -36,7 +36,6 @@ func TestParseSource(t *testing.T) {
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail:    "test@test-pubsub.com",
 				models.ConfigProjectID:      "test-pubsub",
-				models.ConfigTopicID:        "test-T.o~pic_123+%",
 				models.ConfigSubscriptionID: "test-SUb.scription~%_1230+",
 			},
 			want: Source{
@@ -44,7 +43,6 @@ func TestParseSource(t *testing.T) {
 					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 					ClientEmail: "test@test-pubsub.com",
 					ProjectID:   "test-pubsub",
-					TopicID:     "test-T.o~pic_123+%",
 				},
 				SubscriptionID: "test-SUb.scription~%_1230+",
 			},
@@ -55,7 +53,6 @@ func TestParseSource(t *testing.T) {
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail:    "test@test-pubsub.com",
 				models.ConfigProjectID:      "test-pubsub",
-				models.ConfigTopicID:        "test-topic",
 				models.ConfigSubscriptionID: "su",
 			},
 			wantErr:     true,
@@ -67,7 +64,6 @@ func TestParseSource(t *testing.T) {
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
 				models.ConfigSubscriptionID: "test-KfAvXlueAOAL5UhJ1Rr4zzsZJnB1ilOYXrxgjUmJqD1TZdEC8NAl22oPrzx1HpB7MfgteQUMn8u" +
 					"NCadTgrbUJKY6Lb6ARzyOY3bI3W6YjadDLTl47DIqA7zjYYQNIud9PHXgA0v3NVlk2AVLaziUwylawemiUJOee68ULPg" +
 					"GyBgoCIMAB7ukAgjN0fhGPeYART2yojioOp3w9mBPdklk7OY8rJQFCy5ii70byyHFqT3JG00kJTPzdPPdt53",
@@ -81,7 +77,6 @@ func TestParseSource(t *testing.T) {
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail:    "test@test-pubsub.com",
 				models.ConfigProjectID:      "test-pubsub",
-				models.ConfigTopicID:        "test-topic",
 				models.ConfigSubscriptionID: "test-sub*",
 			},
 			wantErr:     true,
@@ -93,7 +88,6 @@ func TestParseSource(t *testing.T) {
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail:    "test@test-pubsub.com",
 				models.ConfigProjectID:      "test-pubsub",
-				models.ConfigTopicID:        "test-topic",
 				models.ConfigSubscriptionID: "goog-test-subscription",
 			},
 			wantErr:     true,

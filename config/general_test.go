@@ -37,13 +37,11 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-T.o~pic_123+%",
 			},
 			want: general{
 				PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				ClientEmail: "test@test-pubsub.com",
 				ProjectID:   "test-pubsub",
-				TopicID:     "test-T.o~pic_123+%",
 			},
 		},
 		{
@@ -51,7 +49,6 @@ func TestParseGeneral(t *testing.T) {
 			in: map[string]string{
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
 			},
 			wantErr:     true,
 			expectedErr: validator.RequiredErr(models.ConfigPrivateKey).Error(),
@@ -61,7 +58,6 @@ func TestParseGeneral(t *testing.T) {
 			in: map[string]string{
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigProjectID:  "test-pubsub",
-				models.ConfigTopicID:    "test-topic",
 			},
 			wantErr:     true,
 			expectedErr: validator.RequiredErr(models.ConfigClientEmail).Error(),
@@ -71,76 +67,18 @@ func TestParseGeneral(t *testing.T) {
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigTopicID:     "test-topic",
 			},
 			wantErr:     true,
 			expectedErr: validator.RequiredErr(models.ConfigProjectID).Error(),
 		},
 		{
-			name: "topic id is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigTopicID).Error(),
-		},
-		{
 			name: "a couple fields are empty (a client email and a project id)",
 			in: map[string]string{
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigTopicID:    "test-topic",
 			},
 			wantErr: true,
 			expectedErr: multierr.Combine(validator.RequiredErr(models.ConfigClientEmail),
 				validator.RequiredErr(models.ConfigProjectID)).Error(),
-		},
-		{
-			name: "topic id is too small",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "te",
-			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
-		},
-		{
-			name: "topic id is too big",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID: "test-fbhvI8JqeBkI9gSFVRPgvVNfrnXlqj6rwpl4XwMMU4cXP81RIXxnqBxsEO4N7fHWhbMCPnLGiDWvCK" +
-					"JQdIpR9HKOjXaSFUfFc8o13FKFF0NphvUSkWnSHqlnaoXaAEwR192agQUdPML1OkUe5hdFwuow8jiqyrnb2iT5QSL6pL" +
-					"ZeBidzM91IOh5miVCOq927xkPKKGMwbXKWHznVcradcvKlHYCTmfFJ5DopOVHzsxo5LMa5YC74IEr6BDi",
-			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
-		},
-		{
-			name: "topic id has unsupported characters",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-=",
-			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
-		},
-		{
-			name: "topic id starts with goog",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "goog-test-topic",
-			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
 		},
 	}
 
