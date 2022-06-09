@@ -27,8 +27,8 @@ type Source struct {
 	cfg config.Source
 }
 
-// NewSource initialises a new source.
-func NewSource() sdk.Source {
+// New initialises a new source.
+func New() sdk.Source {
 	return &Source{}
 }
 
