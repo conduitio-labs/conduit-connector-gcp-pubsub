@@ -27,14 +27,15 @@ import (
 // A PubSub represents a struct with a GCP Pub/Sub client,
 // and channels for a message and an error.
 type PubSub struct {
-	Cli       *pubsub.Client
-	MessageCh chan *pubsub.Message
-	ErrorCh   chan error
+	Cli           *pubsub.Client
+	MessagesCh    chan *pubsub.Message
+	AckMessagesCh chan *pubsub.Message
+	ErrorCh       chan error
 }
 
 // NewClient initializes a Pub/Sub client and starts receiving a messages to struct channels.
 func NewClient(ctx context.Context, cfg config.Source) (PubSub, error) {
-	const maxOutstandingMessages = 1
+	const maxOutstandingMessages = 1000
 
 	credential, err := marshalCredential(cfg.General)
 	if err != nil {
@@ -47,17 +48,15 @@ func NewClient(ctx context.Context, cfg config.Source) (PubSub, error) {
 	}
 
 	pubSub := PubSub{
-		Cli:       cli,
-		MessageCh: make(chan *pubsub.Message),
-		ErrorCh:   make(chan error),
+		Cli:           cli,
+		MessagesCh:    make(chan *pubsub.Message, maxOutstandingMessages),
+		AckMessagesCh: make(chan *pubsub.Message, maxOutstandingMessages),
+		ErrorCh:       make(chan error),
 	}
 
-	sub := pubSub.Cli.Subscription(cfg.SubscriptionID)
-	sub.ReceiveSettings.MaxOutstandingMessages = maxOutstandingMessages
-
 	go func() {
-		err = sub.Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
-			pubSub.MessageCh <- m
+		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
+			pubSub.MessagesCh <- m
 		})
 		if err != nil {
 			pubSub.ErrorCh <- fmt.Errorf("subscription receive: %w", err)

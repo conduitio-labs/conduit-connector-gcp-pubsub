@@ -21,9 +21,14 @@ import (
 
 // A General represents a general configuration needed for GCP Pub/Sub.
 type General struct {
-	PrivateKey  string `json:"private_key" validate:"required"`
+	// PrivateKey is the configuration name for GCP Pub/Sub client private key.
+	PrivateKey string `json:"private_key" validate:"required"`
+
+	// ClientEmail is the configuration name for GCP Pub/Sub client email.
 	ClientEmail string `json:"client_email" validate:"required,email"`
-	ProjectID   string `json:"project_id" validate:"required"`
+
+	// ProjectID is the configuration name for GCP Pub/Sub client project id.
+	ProjectID string `json:"project_id" validate:"required"`
 }
 
 func parseGeneral(cfg map[string]string) (General, error) {

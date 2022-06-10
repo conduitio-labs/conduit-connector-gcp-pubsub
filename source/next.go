@@ -29,11 +29,11 @@ const (
 // next receives and returns a record.
 func (s *Source) next(ctx context.Context) (sdk.Record, error) {
 	select {
-	case msg := <-s.pubSub.MessageCh:
-		s.msg = msg
+	case msg := <-s.pubSub.MessagesCh:
+		s.pubSub.AckMessagesCh <- msg
 
 		return sdk.Record{
-			Position: sdk.Position{},
+			Position: sdk.Position(msg.ID),
 			Metadata: map[string]string{
 				actionKey: insertValue,
 			},
@@ -47,5 +47,7 @@ func (s *Source) next(ctx context.Context) (sdk.Record, error) {
 		return sdk.Record{}, err
 	case <-ctx.Done():
 		return sdk.Record{}, ctx.Err()
+	default:
+		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
 }

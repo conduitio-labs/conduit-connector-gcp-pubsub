@@ -17,7 +17,6 @@ package source
 import (
 	"context"
 
-	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -27,8 +26,7 @@ import (
 type Source struct {
 	sdk.UnimplementedSource
 	cfg    config.Source
-	pubSub *clients.PubSub
-	msg    *pubsub.Message
+	pubSub clients.PubSub
 }
 
 // New initialises a new source.
@@ -55,7 +53,7 @@ func (s *Source) Open(ctx context.Context, _ sdk.Position) error {
 		return err
 	}
 
-	s.pubSub = &pubSub
+	s.pubSub = pubSub
 
 	return nil
 }
@@ -72,11 +70,16 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 
 // Ack indicates successful processing of a message passed.
 func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
-	sdk.Logger(ctx).Debug().Str("message_id", s.msg.ID).Msg("got ack")
+	select {
+	case msg := <-s.pubSub.AckMessagesCh:
+		sdk.Logger(ctx).Debug().Str("message_id", msg.ID).Msg("got ack")
 
-	s.msg.Ack()
+		msg.Ack()
 
-	return nil
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 // Teardown releases any resources held by the GCP Pub/Sub client.

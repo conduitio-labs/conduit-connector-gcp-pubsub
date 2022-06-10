@@ -22,6 +22,8 @@ import (
 // A Source represents a source configuration needed for GCP Pub/Sub.
 type Source struct {
 	General
+
+	// SubscriptionID is the configuration name for GCP Pub/Sub client subscription id.
 	SubscriptionID string `json:"subscription_id" validate:"required,object_name"`
 }
 
