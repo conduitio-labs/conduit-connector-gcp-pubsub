@@ -39,7 +39,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigSubscriptionID: "test-SUb.scription~%_1230+",
 			},
 			want: Source{
-				general: general{
+				General: General{
 					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 					ClientEmail: "test@test-pubsub.com",
 					ProjectID:   "test-pubsub",

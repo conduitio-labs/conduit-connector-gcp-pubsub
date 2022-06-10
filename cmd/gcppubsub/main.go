@@ -21,5 +21,5 @@ import (
 )
 
 func main() {
-	sdk.Serve(gcppubsub.Specification, source.NewSource, nil)
+	sdk.Serve(gcppubsub.Specification, source.New, nil)
 }

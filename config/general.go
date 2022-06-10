@@ -19,14 +19,20 @@ import (
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 )
 
-type general struct {
-	PrivateKey  string `validate:"required"`
-	ClientEmail string `validate:"required,email"`
-	ProjectID   string `validate:"required"`
+// A General represents a general configuration needed for GCP Pub/Sub.
+type General struct {
+	// PrivateKey is the configuration name for GCP Pub/Sub client private key.
+	PrivateKey string `json:"private_key" validate:"required"`
+
+	// ClientEmail is the configuration name for GCP Pub/Sub client email.
+	ClientEmail string `json:"client_email" validate:"required,email"`
+
+	// ProjectID is the configuration name for GCP Pub/Sub client project id.
+	ProjectID string `json:"project_id" validate:"required"`
 }
 
-func parseGeneral(cfg map[string]string) (general, error) {
-	config := general{
+func parseGeneral(cfg map[string]string) (General, error) {
+	config := General{
 		PrivateKey:  cfg[models.ConfigPrivateKey],
 		ClientEmail: cfg[models.ConfigClientEmail],
 		ProjectID:   cfg[models.ConfigProjectID],
@@ -34,7 +40,7 @@ func parseGeneral(cfg map[string]string) (general, error) {
 
 	err := validator.Validate(config)
 	if err != nil {
-		return general{}, err
+		return General{}, err
 	}
 
 	return config, nil

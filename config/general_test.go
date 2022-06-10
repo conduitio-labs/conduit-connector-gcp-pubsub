@@ -27,7 +27,7 @@ func TestParseGeneral(t *testing.T) {
 	tests := []struct {
 		name        string
 		in          map[string]string
-		want        general
+		want        General
 		wantErr     bool
 		expectedErr string
 	}{
@@ -38,7 +38,7 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
 			},
-			want: general{
+			want: General{
 				PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				ClientEmail: "test@test-pubsub.com",
 				ProjectID:   "test-pubsub",

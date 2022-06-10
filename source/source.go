@@ -17,6 +17,7 @@ package source
 import (
 	"context"
 
+	"github.com/conduitio/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -24,16 +25,17 @@ import (
 // A Source represents the source connector.
 type Source struct {
 	sdk.UnimplementedSource
-	cfg config.Source
+	cfg    config.Source
+	pubSub clients.PubSub
 }
 
-// NewSource initialises a new source.
-func NewSource() sdk.Source {
+// New initialises a new source.
+func New() sdk.Source {
 	return &Source{}
 }
 
 // Configure parses and stores configurations, returns an error in case of invalid configuration.
-func (s *Source) Configure(ctx context.Context, cfgRaw map[string]string) error {
+func (s *Source) Configure(_ context.Context, cfgRaw map[string]string) error {
 	cfg, err := config.ParseSource(cfgRaw)
 	if err != nil {
 		return err
@@ -42,4 +44,47 @@ func (s *Source) Configure(ctx context.Context, cfgRaw map[string]string) error 
 	s.cfg = cfg
 
 	return nil
+}
+
+// Open initializes a Pub/Sub client.
+func (s *Source) Open(ctx context.Context, _ sdk.Position) error {
+	pubSub, err := clients.NewClient(ctx, s.cfg)
+	if err != nil {
+		return err
+	}
+
+	s.pubSub = pubSub
+
+	return nil
+}
+
+// Read returns the next sdk.Record.
+func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
+	r, err := s.next(ctx)
+	if err != nil {
+		return sdk.Record{}, err
+	}
+
+	return r, nil
+}
+
+// Ack indicates successful processing of a message passed.
+func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
+	select {
+	case msg := <-s.pubSub.AckMessagesCh:
+		sdk.Logger(ctx).Debug().Str("message_id", msg.ID).Msg("got ack")
+
+		msg.Ack()
+
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// Teardown releases any resources held by the GCP Pub/Sub client.
+func (s *Source) Teardown(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
+
+	return s.pubSub.Cli.Close()
 }
