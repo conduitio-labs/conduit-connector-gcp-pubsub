@@ -33,20 +33,20 @@ type PubSub struct {
 }
 
 // NewClient initializes a Pub/Sub client and starts receiving a messages to struct channels.
-func NewClient(ctx context.Context, cfg config.Source) (PubSub, error) {
+func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 	const maxOutstandingMessages = 1000
 
 	credential, err := cfg.General.Marshal()
 	if err != nil {
-		return PubSub{}, err
+		return nil, err
 	}
 
 	cli, err := pubsub.NewClient(ctx, cfg.ProjectID, option.WithCredentialsJSON(credential))
 	if err != nil {
-		return PubSub{}, fmt.Errorf("new pubsub client: %w", err)
+		return nil, fmt.Errorf("new pubsub client: %w", err)
 	}
 
-	pubSub := PubSub{
+	pubSub := &PubSub{
 		Cli:           cli,
 		MessagesCh:    make(chan *pubsub.Message, maxOutstandingMessages),
 		AckMessagesCh: make(chan *pubsub.Message, maxOutstandingMessages),
