@@ -34,8 +34,6 @@ type PubSub struct {
 
 // NewClient initializes a Pub/Sub client and starts receiving a messages to struct channels.
 func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
-	const maxOutstandingMessages = 1000
-
 	credential, err := cfg.General.Marshal()
 	if err != nil {
 		return nil, err
@@ -48,13 +46,13 @@ func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 
 	pubSub := &PubSub{
 		Cli:           cli,
-		MessagesCh:    make(chan *pubsub.Message, maxOutstandingMessages),
-		AckMessagesCh: make(chan *pubsub.Message, maxOutstandingMessages),
+		MessagesCh:    make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
+		AckMessagesCh: make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		ErrorCh:       make(chan error),
 	}
 
 	go func() {
-		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
+		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(ctx, func(_ context.Context, m *pubsub.Message) {
 			pubSub.MessagesCh <- m
 		})
 		if err != nil {
