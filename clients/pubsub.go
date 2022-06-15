@@ -16,7 +16,6 @@ package clients
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 
 	"cloud.google.com/go/pubsub"
@@ -37,7 +36,7 @@ type PubSub struct {
 func NewClient(ctx context.Context, cfg config.Source) (PubSub, error) {
 	const maxOutstandingMessages = 1000
 
-	credential, err := marshalCredential(cfg.General)
+	credential, err := cfg.General.Marshal()
 	if err != nil {
 		return PubSub{}, err
 	}
@@ -64,23 +63,4 @@ func NewClient(ctx context.Context, cfg config.Source) (PubSub, error) {
 	}()
 
 	return pubSub, nil
-}
-
-func marshalCredential(cfg config.General) ([]byte, error) {
-	const credentialType = "service_account"
-
-	credentialStruct := struct {
-		config.General
-		Type string `json:"type"`
-	}{
-		General: cfg,
-		Type:    credentialType,
-	}
-
-	credential, err := json.Marshal(credentialStruct)
-	if err != nil {
-		return nil, fmt.Errorf("marshal creadential: %w", err)
-	}
-
-	return credential, nil
 }
