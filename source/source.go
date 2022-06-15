@@ -26,7 +26,7 @@ import (
 type Source struct {
 	sdk.UnimplementedSource
 	cfg    config.Source
-	pubSub clients.PubSub
+	pubSub *clients.PubSub
 }
 
 // New initialises a new source.
@@ -70,21 +70,16 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 
 // Ack indicates successful processing of a message passed.
 func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
-	select {
-	case msg := <-s.pubSub.AckMessagesCh:
-		sdk.Logger(ctx).Debug().Str("message_id", msg.ID).Msg("got ack")
-
-		msg.Ack()
-
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
+	return s.ack(ctx)
 }
 
 // Teardown releases any resources held by the GCP Pub/Sub client.
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
-	return s.pubSub.Cli.Close()
+	if s.pubSub != nil {
+		return s.pubSub.Cli.Close()
+	}
+
+	return nil
 }

@@ -20,32 +20,20 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-// next receives and returns a record.
-func (s *Source) next(ctx context.Context) (sdk.Record, error) {
+// ack indicates successful processing of a Message passed.
+func (s *Source) ack(ctx context.Context) error {
 	if s.pubSub == nil {
-		return sdk.Record{}, errPubsubIsNil
+		return errPubsubIsNil
 	}
 
 	select {
-	case msg := <-s.pubSub.MessagesCh:
-		s.pubSub.AckMessagesCh <- msg
+	case msg := <-s.pubSub.AckMessagesCh:
+		sdk.Logger(ctx).Debug().Str("message_id", msg.ID).Msg("got ack")
 
-		return sdk.Record{
-			Position: sdk.Position(msg.ID),
-			Metadata: map[string]string{
-				actionKey: insertValue,
-			},
-			CreatedAt: msg.PublishTime,
-			Key: sdk.StructuredData{
-				idKey: msg.ID,
-			},
-			Payload: sdk.RawData(msg.Data),
-		}, nil
-	case err := <-s.pubSub.ErrorCh:
-		return sdk.Record{}, err
+		msg.Ack()
+
+		return nil
 	case <-ctx.Done():
-		return sdk.Record{}, ctx.Err()
-	default:
-		return sdk.Record{}, sdk.ErrBackoffRetry
+		return ctx.Err()
 	}
 }
