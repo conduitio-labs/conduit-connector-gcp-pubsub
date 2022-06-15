@@ -15,6 +15,9 @@
 package config
 
 import (
+	"encoding/json"
+	"fmt"
+
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 )
@@ -44,4 +47,24 @@ func parseGeneral(cfg map[string]string) (General, error) {
 	}
 
 	return config, nil
+}
+
+// Marshal converts General configuration into a binary representation.
+func (cfg General) Marshal() ([]byte, error) {
+	const credentialType = "service_account"
+
+	credentialStruct := struct {
+		General
+		Type string `json:"type"`
+	}{
+		General: cfg,
+		Type:    credentialType,
+	}
+
+	credential, err := json.Marshal(credentialStruct)
+	if err != nil {
+		return nil, fmt.Errorf("marshal creadential: %w", err)
+	}
+
+	return credential, nil
 }
