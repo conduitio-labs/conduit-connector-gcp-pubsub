@@ -21,13 +21,11 @@ import (
 	"os"
 	"reflect"
 	"testing"
-	"time"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"github.com/google/uuid"
 	"google.golang.org/api/option"
 )
 
@@ -64,6 +62,42 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		}
 	})
 
+	t.Run("read empty", func(t *testing.T) {
+		pubsubSource := New()
+
+		ctx := context.Background()
+
+		cfg, err := prepareConfig()
+		if err != nil {
+			t.Log(err)
+			t.Skip()
+		}
+
+		err = pubsubSource.Configure(ctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = pubsubSource.Open(ctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		record, err := pubsubSource.Read(ctx)
+		if err != sdk.ErrBackoffRetry {
+			t.Errorf("read error: got = %v, want = %v", err, sdk.ErrBackoffRetry)
+		}
+
+		if record.Key != nil {
+			t.Error("record should be empty")
+		}
+
+		err = pubsubSource.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+	})
+
 	t.Run("configure, open and teardown", func(t *testing.T) {
 		pubsubSource := New()
 
@@ -92,11 +126,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("publish and receive 1 message", func(t *testing.T) {
-		const (
-			messagesCount = 1
-
-			waitTime = 100 * time.Millisecond
-		)
+		const messagesCount = 1
 
 		cfg, err := prepareConfig()
 		if err != nil {
@@ -126,10 +156,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for {
-			if len(records) == messagesCount {
-				break
-			}
-
 			record, err := pubsubSource.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
@@ -145,10 +171,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
+
+			if len(records) == messagesCount {
+				break
+			}
 		}
 
-		// wait a little longer to acknowledge all messages
-		time.Sleep(waitTime)
 		err = pubsubSource.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
@@ -166,8 +194,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 			firstStopMessagesCount  = 10
 			secondStopMessagesCount = 17
-
-			waitTime = 100 * time.Millisecond
 		)
 
 		var additionalRequestsCount = 20
@@ -200,10 +226,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for {
-			if len(records) == firstStopMessagesCount {
-				break
-			}
-
 			record, err := pubsubSource.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
@@ -219,9 +241,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
+
+			if len(records) == firstStopMessagesCount {
+				break
+			}
 		}
 
-		time.Sleep(waitTime)
 		err = pubsubSource.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
@@ -233,10 +258,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		}
 
 		for {
-			if len(records) == secondStopMessagesCount {
-				break
-			}
-
 			record, err := pubsubSource.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
@@ -252,9 +273,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
+
+			if len(records) == secondStopMessagesCount {
+				break
+			}
 		}
 
-		time.Sleep(waitTime)
 		err = pubsubSource.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
@@ -292,17 +316,20 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
+
+			if len(records) == messagesCount {
+				break
+			}
+		}
+
+		err = pubsubSource.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
 		}
 
 		err = compareResults(records, dataMap)
 		if err != nil {
 			t.Errorf(err.Error())
-		}
-
-		time.Sleep(waitTime)
-		err = pubsubSource.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 }
@@ -365,7 +392,7 @@ func generateAndPublish(ctx context.Context, cfg map[string]string, messagesCoun
 	dataMap := make(map[string][]byte, messagesCount)
 
 	for i := 0; i < messagesCount; i++ {
-		data := []byte(fmt.Sprintf("{\"id\": \"%s\"}", uuid.New().String()))
+		data := []byte(fmt.Sprintf("{\"i\": \"%d\"}", i))
 
 		id, err := publish(ctx, cli, data)
 		if err != nil {

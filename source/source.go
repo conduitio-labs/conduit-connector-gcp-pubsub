@@ -16,6 +16,7 @@ package source
 
 import (
 	"context"
+	"time"
 
 	"github.com/conduitio/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
@@ -77,7 +78,11 @@ func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
+	const waitTime = 100 * time.Millisecond
+
 	if s.pubSub != nil {
+		time.Sleep(waitTime)
+
 		return s.pubSub.Cli.Close()
 	}
 

@@ -52,7 +52,7 @@ func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 	}
 
 	go func() {
-		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(ctx, func(_ context.Context, m *pubsub.Message) {
+		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
 			pubSub.MessagesCh <- m
 		})
 		if err != nil {
