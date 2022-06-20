@@ -188,7 +188,8 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		}
 	})
 
-	t.Run("publish and receive 30 messages in a row with starts and stops", func(t *testing.T) {
+	t.Run("publish and receive 30 messages in a row with starts and stops, "+
+		"and with additional 20 requests", func(t *testing.T) {
 		const (
 			messagesCount = 30
 
@@ -288,6 +289,82 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
+
+		i := 0
+		for {
+			// when all messages are received,
+			// make additionalRequestsCount additional queries to check that there are no more messages
+			if len(records) == messagesCount {
+				i++
+
+				if additionalRequestsCount == i {
+					break
+				}
+			}
+
+			record, err := pubsubSource.Read(ctx)
+			if err != nil {
+				if err == sdk.ErrBackoffRetry {
+					continue
+				}
+
+				t.Errorf("read: %s", err.Error())
+			}
+
+			err = pubsubSource.Ack(ctx, nil)
+			if err != nil {
+				t.Errorf("ack: %s", err.Error())
+			}
+
+			records = append(records, record)
+
+			if len(records) == messagesCount {
+				break
+			}
+		}
+
+		err = pubsubSource.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		err = compareResults(records, dataMap)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+
+	t.Run("publish 2500 messages in a row with 500 additional requests", func(t *testing.T) {
+		const messagesCount = 2500
+
+		var additionalRequestsCount = 500
+
+		cfg, err := prepareConfig()
+		if err != nil {
+			t.Log(err)
+			t.Skip()
+		}
+
+		pubsubSource := New()
+
+		ctx := context.Background()
+
+		err = pubsubSource.Configure(ctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = pubsubSource.Open(ctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		dataMap, err := generateAndPublish(ctx, cfg, messagesCount)
+		if err != nil {
+			t.Errorf("generate and publish: %s", err.Error())
+		}
+
+		records := make([]sdk.Record, 0, messagesCount)
 
 		i := 0
 		for {
