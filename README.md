@@ -11,19 +11,7 @@ The GCP Pub/Sub connector is one of [Conduit](https://github.com/ConduitIO/condu
 
 Under the hood, the connector uses [Google Cloud Client Libraries for Go](https://github.com/googleapis/google-cloud-go).
 
-### Configuration
-The user can get general (for both types of connector) configuration fields from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
-
-All general fields and fields for a specific connector type are required.
-
-| name             | description                        | type    | example                                                                        |
-|------------------|------------------------------------|---------|--------------------------------------------------------------------------------|
-| `privateKey`     | from JSON, key: `private_key`      | general | -----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG\n-----END PRIVATE KEY-----\n |
-| `clientEmail`    | from JSON, key: `client_email`     | general | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
-| `projectID`      | from JSON, key: `project_id`       | general | conduit-pubsub                                                                 |
-| `subscriptionID` | subscription name to pull messages | source  | conduit-subscription                                                           |
-
-#### Source
+### Source
 
 A GCP Pub/Sub source connector represents the receiver of the messages.
 
@@ -37,4 +25,16 @@ The callback function sends messages to the channel and `Read` method receives m
 
 `Teardown` waits `100 milliseconds` and closes the Pub/Sub client.
 
-Note: the system needs to wait a bit before closing the client, because all acknowledgments should already be done.
+**Note**: the plugin needs to wait a bit before closing the GCP Pub/Sub client, because acknowledgment of message receiving goes asynchronously, we have to wait for all acknowledgments to be successfully sent. There will be no acknowledgment if the client is already closed.
+
+#### Configuration
+The user can get the authorization data from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
+
+All fields are required.
+
+| name             | description                        | example                                                                        |
+|------------------|------------------------------------|--------------------------------------------------------------------------------|
+| `privateKey`     | private key to auth in a client    | -----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG\n-----END PRIVATE KEY-----\n |
+| `clientEmail`    | client email to auth in a client   | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
+| `projectID`      | project id to auth in a client     | conduit-pubsub                                                                 |
+| `subscriptionID` | subscription name to pull messages | conduit-subscription                                                           |
