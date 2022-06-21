@@ -460,18 +460,28 @@ func initClient(ctx context.Context, cfg map[string]string) (*pubsub.Client, err
 }
 
 func generateAndPublish(ctx context.Context, cfg map[string]string, messagesCount int) (map[string][]byte, error) {
+	topicID := os.Getenv("GCP_PUBSUB_TOPIC_ID")
+	if topicID == "" {
+		return nil, errors.New("GCP_PUBSUB_TOPIC_ID env var must be set")
+	}
+
 	cli, err := initClient(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("init pub client: %w", err)
 	}
 	defer cli.Close()
 
+	topic := cli.Topic(topicID)
+	defer topic.Stop()
+
 	dataMap := make(map[string][]byte, messagesCount)
 
 	for i := 0; i < messagesCount; i++ {
-		data := []byte(fmt.Sprintf("{\"i\": \"%d\"}", i))
+		data := []byte(fmt.Sprintf("{\"id\": \"%d\"}", i))
 
-		id, err := publish(ctx, cli, data)
+		id, err := topic.Publish(ctx, &pubsub.Message{
+			Data: data,
+		}).Get(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("publish: %w", err)
 		}
@@ -480,22 +490,6 @@ func generateAndPublish(ctx context.Context, cfg map[string]string, messagesCoun
 	}
 
 	return dataMap, nil
-}
-
-func publish(ctx context.Context, cli *pubsub.Client, data []byte) (string, error) {
-	topicID := os.Getenv("GCP_PUBSUB_TOPIC_ID")
-	if topicID == "" {
-		return "", errors.New("GCP_PUBSUB_TOPIC_ID env var must be set")
-	}
-
-	msgID, err := cli.Topic(topicID).Publish(ctx, &pubsub.Message{
-		Data: data,
-	}).Get(ctx)
-	if err != nil {
-		return "", fmt.Errorf("publish message")
-	}
-
-	return msgID, nil
 }
 
 func compareResults(records []sdk.Record, dataMap map[string][]byte) error {
