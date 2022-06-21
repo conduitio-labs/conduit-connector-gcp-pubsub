@@ -30,6 +30,8 @@ type PubSub struct {
 	MessagesCh    chan *pubsub.Message
 	AckMessagesCh chan *pubsub.Message
 	ErrorCh       chan error
+	canceledCh    chan struct{}
+	ctxCancel     context.CancelFunc
 }
 
 // NewClient initializes a Pub/Sub client and starts receiving a messages to struct channels.
@@ -44,21 +46,51 @@ func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 		return nil, fmt.Errorf("new pubsub client: %w", err)
 	}
 
+	cctx, cancel := context.WithCancel(ctx)
+
 	pubSub := &PubSub{
 		Cli:           cli,
 		MessagesCh:    make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		AckMessagesCh: make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		ErrorCh:       make(chan error),
+		canceledCh:    make(chan struct{}),
+		ctxCancel:     cancel,
 	}
 
 	go func() {
-		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(ctx, func(ctx context.Context, m *pubsub.Message) {
+		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
 			pubSub.MessagesCh <- m
 		})
 		if err != nil {
 			pubSub.ErrorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
+
+		pubSub.canceledCh <- struct{}{}
 	}()
 
 	return pubSub, nil
+}
+
+// Close cancels the context to stop the GCP receiver,
+// marks all unread messages from the channel the client did not receive them,
+// waits the GCP receiver will stop and releases the GCP Pub/Sub client.
+func (ps *PubSub) Close() error {
+	if ps == nil {
+		return nil
+	}
+
+	ps.ctxCancel()
+
+	for i := 0; i < pubsub.DefaultReceiveSettings.MaxOutstandingMessages; i++ {
+		select {
+		case msg := <-ps.MessagesCh:
+			msg.Nack()
+		default:
+			break
+		}
+	}
+
+	<-ps.canceledCh
+
+	return ps.Cli.Close()
 }

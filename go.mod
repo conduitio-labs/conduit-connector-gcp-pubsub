@@ -6,7 +6,6 @@ require (
 	cloud.google.com/go/pubsub v1.22.2
 	github.com/conduitio/conduit-connector-sdk v0.2.0
 	github.com/go-playground/validator/v10 v10.11.0
-	github.com/google/uuid v1.1.2
 	go.uber.org/multierr v1.8.0
 	google.golang.org/api v0.83.0
 )
