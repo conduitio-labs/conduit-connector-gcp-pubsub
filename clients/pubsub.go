@@ -65,6 +65,8 @@ func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 			pubSub.ErrorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
+		close(pubSub.MessagesCh)
+
 		pubSub.canceledCh <- struct{}{}
 	}()
 
@@ -81,13 +83,8 @@ func (ps *PubSub) Close() error {
 
 	ps.ctxCancel()
 
-	for i := 0; i < pubsub.DefaultReceiveSettings.MaxOutstandingMessages; i++ {
-		select {
-		case msg := <-ps.MessagesCh:
-			msg.Nack()
-		default:
-			break
-		}
+	for msg := range ps.MessagesCh {
+		msg.Nack()
 	}
 
 	<-ps.canceledCh
