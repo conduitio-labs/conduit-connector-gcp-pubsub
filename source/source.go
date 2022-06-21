@@ -70,16 +70,14 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 
 // Ack indicates successful processing of a message passed.
 func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
+	sdk.Logger(ctx).Debug().Msg("got ack")
+
 	return s.ack(ctx)
 }
 
-// Teardown releases any resources held by the GCP Pub/Sub client.
+// Teardown releases the GCP Pub/Sub client.
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
-	if s.pubSub != nil {
-		return s.pubSub.Cli.Close()
-	}
-
-	return nil
+	return s.pubSub.Close()
 }
