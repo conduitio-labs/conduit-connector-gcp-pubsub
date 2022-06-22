@@ -17,7 +17,7 @@ package source
 import (
 	"context"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/clients"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -25,8 +25,8 @@ import (
 // A Source represents the source connector.
 type Source struct {
 	sdk.UnimplementedSource
-	cfg    config.Source
-	pubSub *clients.PubSub
+	cfg        config.Source
+	subscriber *client.Subscriber
 }
 
 // New initialises a new source.
@@ -46,14 +46,14 @@ func (s *Source) Configure(_ context.Context, cfgRaw map[string]string) error {
 	return nil
 }
 
-// Open initializes a Pub/Sub client.
+// Open initializes a subscriber client.
 func (s *Source) Open(ctx context.Context, _ sdk.Position) error {
-	pubSub, err := clients.NewClient(ctx, s.cfg)
+	subscriber, err := client.NewSubscriber(ctx, s.cfg)
 	if err != nil {
 		return err
 	}
 
-	s.pubSub = pubSub
+	s.subscriber = subscriber
 
 	return nil
 }
@@ -75,9 +75,9 @@ func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
 	return s.ack(ctx)
 }
 
-// Teardown releases the GCP Pub/Sub client.
+// Teardown releases the GCP subscriber client.
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
-	return s.pubSub.Close()
+	return s.subscriber.Close()
 }

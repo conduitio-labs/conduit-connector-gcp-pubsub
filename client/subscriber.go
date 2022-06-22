@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package clients
+package client
 
 import (
 	"context"
@@ -20,36 +20,29 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
-	"google.golang.org/api/option"
 )
 
-// A PubSub represents a struct with a GCP Pub/Sub client,
-// and channels for a message and an error.
-type PubSub struct {
-	Cli           *pubsub.Client
+// A Subscriber represents a struct with a GCP subscriber client.
+type Subscriber struct {
 	MessagesCh    chan *pubsub.Message
 	AckMessagesCh chan *pubsub.Message
 	ErrorCh       chan error
+	cli           *pubsub.Client
 	canceledCh    chan struct{}
 	ctxCancel     context.CancelFunc
 }
 
-// NewClient initializes a Pub/Sub client and starts receiving a messages to struct channels.
-func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
-	credential, err := cfg.General.Marshal()
-	if err != nil {
-		return nil, err
-	}
-
-	cli, err := pubsub.NewClient(ctx, cfg.ProjectID, option.WithCredentialsJSON(credential))
+// NewSubscriber initializes a new subscriber client and starts receiving a messages to struct channels.
+func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) {
+	cli, err := newClient(ctx, cfg.General)
 	if err != nil {
 		return nil, fmt.Errorf("new pubsub client: %w", err)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
 
-	pubSub := &PubSub{
-		Cli:           cli,
+	pubSub := &Subscriber{
+		cli:           cli,
 		MessagesCh:    make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		AckMessagesCh: make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		ErrorCh:       make(chan error),
@@ -58,7 +51,7 @@ func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 	}
 
 	go func() {
-		err = pubSub.Cli.Subscription(cfg.SubscriptionID).Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
+		err = pubSub.cli.Subscription(cfg.SubscriptionID).Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
 			pubSub.MessagesCh <- m
 		})
 		if err != nil {
@@ -75,8 +68,8 @@ func NewClient(ctx context.Context, cfg config.Source) (*PubSub, error) {
 
 // Close cancels the context to stop the GCP receiver,
 // marks all unread messages from the channel the client did not receive them,
-// waits the GCP receiver will stop and releases the GCP Pub/Sub client.
-func (ps *PubSub) Close() error {
+// waits the GCP receiver will stop and releases the GCP subscriber client.
+func (ps *Subscriber) Close() error {
 	if ps == nil {
 		return nil
 	}
@@ -89,5 +82,5 @@ func (ps *PubSub) Close() error {
 
 	<-ps.canceledCh
 
-	return ps.Cli.Close()
+	return ps.cli.Close()
 }

@@ -15,22 +15,22 @@
 package models
 
 const (
-	// ConfigPrivateKey is the configuration name for GCP Pub/Sub private key.
+	// ConfigPrivateKey is the configuration name of the private key for the GCP Pub/Sub client.
 	ConfigPrivateKey = "privateKey"
 
-	// ConfigClientEmail is the configuration name for GCP Pub/Sub client's email.
+	// ConfigClientEmail is the configuration name of the client's email for the GCP Pub/Sub client.
 	ConfigClientEmail = "clientEmail"
 
-	// ConfigProjectID is the configuration name for GCP Pub/Sub project ID.
+	// ConfigProjectID is the configuration name of the project ID for the GCP Pub/Sub client.
 	ConfigProjectID = "projectID"
 
-	// ConfigSubscriptionID is the configuration name for GCP Pub/Sub subscription ID.
+	// ConfigSubscriptionID is the configuration name of the subscription ID for the subscriber client.
 	ConfigSubscriptionID = "subscriptionID"
 
-	// ConfigBatchSize is the configuration name for GCP Pub/Sub batch size.
+	// ConfigBatchSize is the configuration name of the batch size for the publisher client.
 	ConfigBatchSize = "batchSize"
 
-	// ConfigBatchDelay is the configuration name for GCP Pub/Sub batch delay.
+	// ConfigBatchDelay is the configuration name of the batch delay for the publisher client.
 	ConfigBatchDelay = "batchDelay"
 )
 

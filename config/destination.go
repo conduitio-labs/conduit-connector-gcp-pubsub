@@ -23,18 +23,20 @@ import (
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 )
 
-// A Destination represents a destination configuration needed for GCP Pub/Sub.
+// A Destination represents a destination configuration needed for the publisher client.
 type Destination struct {
 	General
 
-	// BatchSize is the size of the batch of messages, on completing which the batch of messages will be published.
+	// BatchSize is the configuration of the batch size for the publisher client.
+	// It is the size of the batch of messages, on completing which the batch of messages will be published.
 	BatchSize int `json:"batch_size" validate:"gte=1,lte=1000,omitempty"`
 
-	// BatchDelay is the time delay, after which the batch of messages will be published.
+	// BatchDelay is the configuration of the batch delay for the publisher client.
+	// It is the time delay, after which the batch of messages will be published.
 	BatchDelay time.Duration `json:"batch_delay" validate:"gte=1ms,lte=1s,omitempty"`
 }
 
-// ParseDestination parses GCP Pub/Sub destination configuration into a Config struct.
+// ParseDestination parses destination configuration into a configuration Destination struct.
 func ParseDestination(cfg map[string]string) (Destination, error) {
 	config, err := parseGeneral(cfg)
 	if err != nil {

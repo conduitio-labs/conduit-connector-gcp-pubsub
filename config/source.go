@@ -19,15 +19,15 @@ import (
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 )
 
-// A Source represents a source configuration needed for GCP Pub/Sub.
+// A Source represents a source configuration needed for the subscriber client.
 type Source struct {
 	General
 
-	// SubscriptionID is the configuration name for GCP Pub/Sub client subscription id.
+	// SubscriptionID is the configuration of the subscription ID for the subscriber client.
 	SubscriptionID string `json:"subscription_id" validate:"required,object_name"`
 }
 
-// ParseSource parses GCP Pub/Sub source configuration into a Config struct.
+// ParseSource parses source configuration into a configuration Source struct.
 func ParseSource(cfg map[string]string) (Source, error) {
 	config, err := parseGeneral(cfg)
 	if err != nil {

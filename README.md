@@ -15,7 +15,7 @@ Under the hood, the connector uses [Google Cloud Client Libraries for Go](https:
 
 A GCP Pub/Sub source connector represents the receiver of the messages.
 
-`Open` initializes the GCP Pub/Sub client and calls the client's `Receive` method.
+`Open` initializes the GCP subscriber client and calls the client's `Receive` method.
 
 `Receive` method takes a callback function, which is called each time a message is received.
 
@@ -23,9 +23,7 @@ The callback function sends messages to the channel and `Read` method receives m
 
 `Ack` calls the acknowledge method the message was received.
 
-`Teardown` waits `100 milliseconds` and closes the Pub/Sub client.
-
-**Note**: the plugin needs to wait a bit before closing the GCP Pub/Sub client, because acknowledgment of message receiving goes asynchronously, we have to wait for all acknowledgments to be successfully sent. There will be no acknowledgment if the client is already closed.
+`Teardown` marks all unread messages from the channel the client did not receive them and releases the GCP subscriber client.
 
 #### Configuration
 The user can get the authorization data from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
