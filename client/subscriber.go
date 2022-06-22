@@ -22,27 +22,28 @@ import (
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 )
 
-// A Subscriber represents a struct with a GCP subscriber client.
+// A Subscriber represents a subscriber struct with a GCP Pub/Sub client.
 type Subscriber struct {
+	*pubSub
+
 	MessagesCh    chan *pubsub.Message
 	AckMessagesCh chan *pubsub.Message
 	ErrorCh       chan error
-	cli           *pubsub.Client
 	canceledCh    chan struct{}
 	ctxCancel     context.CancelFunc
 }
 
 // NewSubscriber initializes a new subscriber client and starts receiving a messages to struct channels.
 func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) {
-	cli, err := newClient(ctx, cfg.General)
+	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
 		return nil, fmt.Errorf("new pubsub client: %w", err)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
 
-	pubSub := &Subscriber{
-		cli:           cli,
+	subscriber := &Subscriber{
+		pubSub:        ps,
 		MessagesCh:    make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		AckMessagesCh: make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
 		ErrorCh:       make(chan error),
@@ -51,36 +52,38 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 	}
 
 	go func() {
-		err = pubSub.cli.Subscription(cfg.SubscriptionID).Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
-			pubSub.MessagesCh <- m
-		})
+		err = subscriber.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
+			func(ctx context.Context, m *pubsub.Message) {
+				subscriber.MessagesCh <- m
+			},
+		)
 		if err != nil {
-			pubSub.ErrorCh <- fmt.Errorf("subscription receive: %w", err)
+			subscriber.ErrorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
-		close(pubSub.MessagesCh)
+		close(subscriber.MessagesCh)
 
-		pubSub.canceledCh <- struct{}{}
+		subscriber.canceledCh <- struct{}{}
 	}()
 
-	return pubSub, nil
+	return subscriber, nil
 }
 
 // Close cancels the context to stop the GCP receiver,
 // marks all unread messages from the channel the client did not receive them,
 // waits the GCP receiver will stop and releases the GCP subscriber client.
-func (ps *Subscriber) Close() error {
-	if ps == nil {
+func (s *Subscriber) Close() error {
+	if s == nil {
 		return nil
 	}
 
-	ps.ctxCancel()
+	s.ctxCancel()
 
-	for msg := range ps.MessagesCh {
+	for msg := range s.MessagesCh {
 		msg.Nack()
 	}
 
-	<-ps.canceledCh
+	<-s.canceledCh
 
-	return ps.cli.Close()
+	return s.pubSub.close()
 }
