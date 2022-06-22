@@ -26,6 +26,12 @@ const (
 
 	// ConfigSubscriptionID is the configuration name for GCP Pub/Sub subscription ID.
 	ConfigSubscriptionID = "subscriptionID"
+
+	// ConfigBatchSize is the configuration name for GCP Pub/Sub batch size.
+	ConfigBatchSize = "batchSize"
+
+	// ConfigBatchDelay is the configuration name for GCP Pub/Sub batch delay.
+	ConfigBatchDelay = "batchDelay"
 )
 
 // ConfigKeyName returns a configuration key name by struct field.
@@ -35,5 +41,7 @@ func ConfigKeyName(fieldName string) string {
 		"ClientEmail":    ConfigClientEmail,
 		"ProjectID":      ConfigProjectID,
 		"SubscriptionID": ConfigSubscriptionID,
+		"BatchSize":      ConfigBatchSize,
+		"BatchDelay":     ConfigBatchDelay,
 	}[fieldName]
 }

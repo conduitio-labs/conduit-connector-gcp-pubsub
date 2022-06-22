@@ -30,7 +30,17 @@ func InvalidNameErr(name string) error {
 	return fmt.Errorf("%q %s", name, invalidNameErrMsg)
 }
 
-// InvalidBoolErr returns the formatted invalid boolean error.
-func InvalidBoolErr(name string) error {
-	return fmt.Errorf("%q value must be boolean (true or false)", name)
+// InvalidIntegerTypeErr returns the formatted invalid integer type error.
+func InvalidIntegerTypeErr(name string) error {
+	return fmt.Errorf("%q value must be an integer", name)
+}
+
+// InvalidTimeDurationTypeErr returns the formatted invalid time duration type error.
+func InvalidTimeDurationTypeErr(name string) error {
+	return fmt.Errorf("%q value must be a time duration", name)
+}
+
+// OutOfRangeErr returns the formatted out of range error.
+func OutOfRangeErr(name string) error {
+	return fmt.Errorf("%q is out of range", name)
 }
