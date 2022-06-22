@@ -15,6 +15,9 @@
 package gcppubsub
 
 import (
+	"strconv"
+
+	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -50,6 +53,32 @@ func Specification() sdk.Specification {
 				Description: "GCP Pub/Sub subscription id key.",
 			},
 		},
-		DestinationParams: map[string]sdk.Parameter{},
+		DestinationParams: map[string]sdk.Parameter{
+			models.ConfigPrivateKey: {
+				Default:     "",
+				Required:    true,
+				Description: "GCP Pub/Sub private key.",
+			},
+			models.ConfigClientEmail: {
+				Default:     "",
+				Required:    true,
+				Description: "GCP Pub/Sub client email key.",
+			},
+			models.ConfigProjectID: {
+				Default:     "",
+				Required:    true,
+				Description: "GCP Pub/Sub project id key.",
+			},
+			models.ConfigBatchSize: {
+				Default:     strconv.Itoa(pubsub.DefaultPublishSettings.CountThreshold),
+				Required:    false,
+				Description: "GCP Pub/Sub batch size key.",
+			},
+			models.ConfigBatchDelay: {
+				Default:     pubsub.DefaultPublishSettings.DelayThreshold.String(),
+				Required:    false,
+				Description: "GCP Pub/Sub batch delay key.",
+			},
+		},
 	}
 }

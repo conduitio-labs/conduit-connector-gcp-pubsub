@@ -22,15 +22,15 @@ import (
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 )
 
-// A General represents a general configuration needed for GCP Pub/Sub.
+// A General represents a general configuration needed for GCP Pub/Sub client.
 type General struct {
-	// PrivateKey is the configuration name for GCP Pub/Sub client private key.
+	// PrivateKey is the configuration of the private key for the GCP Pub/Sub client.
 	PrivateKey string `json:"private_key" validate:"required"`
 
-	// ClientEmail is the configuration name for GCP Pub/Sub client email.
+	// ClientEmail is the configuration of the client's email for the GCP Pub/Sub client.
 	ClientEmail string `json:"client_email" validate:"required,email"`
 
-	// ProjectID is the configuration name for GCP Pub/Sub client project id.
+	// ProjectID is the configuration of the project ID for the GCP Pub/Sub client.
 	ProjectID string `json:"project_id" validate:"required"`
 }
 

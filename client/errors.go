@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package client
 
 import "errors"
 
-var errPubsubIsNil = errors.New("pubsub is nil")
+var ErrClientIsNil = errors.New("client is nil")

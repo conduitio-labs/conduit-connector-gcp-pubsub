@@ -17,18 +17,19 @@ package source
 import (
 	"context"
 
+	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
 // next receives and returns a record.
 func (s *Source) next(ctx context.Context) (sdk.Record, error) {
-	if s.pubSub == nil {
-		return sdk.Record{}, errPubsubIsNil
+	if s.subscriber == nil {
+		return sdk.Record{}, client.ErrClientIsNil
 	}
 
 	select {
-	case msg := <-s.pubSub.MessagesCh:
-		s.pubSub.AckMessagesCh <- msg
+	case msg := <-s.subscriber.MessagesCh:
+		s.subscriber.AckMessagesCh <- msg
 
 		return sdk.Record{
 			Position: sdk.Position(msg.ID),
@@ -41,7 +42,7 @@ func (s *Source) next(ctx context.Context) (sdk.Record, error) {
 			},
 			Payload: sdk.RawData(msg.Data),
 		}, nil
-	case err := <-s.pubSub.ErrorCh:
+	case err := <-s.subscriber.ErrorCh:
 		return sdk.Record{}, err
 	case <-ctx.Done():
 		return sdk.Record{}, ctx.Err()

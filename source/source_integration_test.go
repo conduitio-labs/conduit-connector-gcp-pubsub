@@ -23,6 +23,7 @@ import (
 	"testing"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -47,13 +48,13 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		}
 
 		_, err = pubsubSource.Read(ctx)
-		if err != errPubsubIsNil {
-			t.Errorf("read: got = %v, want = %v", err, errPubsubIsNil)
+		if err != client.ErrClientIsNil {
+			t.Errorf("read: got = %v, want = %v", err, client.ErrClientIsNil)
 		}
 
 		err = pubsubSource.Ack(ctx, nil)
-		if err != errPubsubIsNil {
-			t.Errorf("ack: got = %v, want = %v", err, errPubsubIsNil)
+		if err != client.ErrClientIsNil {
+			t.Errorf("ack: got = %v, want = %v", err, client.ErrClientIsNil)
 		}
 
 		err = pubsubSource.Teardown(ctx)

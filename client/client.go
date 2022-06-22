@@ -12,29 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package client
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
-	sdk "github.com/conduitio/conduit-connector-sdk"
+	"cloud.google.com/go/pubsub"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
+	"google.golang.org/api/option"
 )
 
-// ack indicates successful processing of a Message passed.
-func (s *Source) ack(ctx context.Context) error {
-	if s.subscriber == nil {
-		return client.ErrClientIsNil
+// newClient initializes a new GCP Pub/Sub client.
+func newClient(ctx context.Context, cfg config.General) (*pubsub.Client, error) {
+	credential, err := cfg.Marshal()
+	if err != nil {
+		return nil, err
 	}
 
-	select {
-	case msg := <-s.subscriber.AckMessagesCh:
-		sdk.Logger(ctx).Debug().Str("message_id", msg.ID).Msg("got ack")
-
-		msg.Ack()
-
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
+	cli, err := pubsub.NewClient(ctx, cfg.ProjectID, option.WithCredentialsJSON(credential))
+	if err != nil {
+		return nil, fmt.Errorf("create a new pubsub client: %w", err)
 	}
+
+	return cli, nil
 }
