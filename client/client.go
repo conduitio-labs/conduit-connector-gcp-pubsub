@@ -23,8 +23,13 @@ import (
 	"google.golang.org/api/option"
 )
 
+// pubSub represents a struct with a GCP Pub/Sub client.
+type pubSub struct {
+	client *pubsub.Client
+}
+
 // newClient initializes a new GCP Pub/Sub client.
-func newClient(ctx context.Context, cfg config.General) (*pubsub.Client, error) {
+func newClient(ctx context.Context, cfg config.General) (*pubSub, error) {
 	credential, err := cfg.Marshal()
 	if err != nil {
 		return nil, err
@@ -35,5 +40,17 @@ func newClient(ctx context.Context, cfg config.General) (*pubsub.Client, error) 
 		return nil, fmt.Errorf("create a new pubsub client: %w", err)
 	}
 
-	return cli, nil
+	return &pubSub{
+		client: cli,
+	}, nil
+}
+
+// close releases any resources held by the client,
+// such as memory and goroutines.
+func (ps pubSub) close() error {
+	if ps.client == nil {
+		return nil
+	}
+
+	return ps.client.Close()
 }
