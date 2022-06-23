@@ -69,10 +69,10 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 	return subscriber, nil
 }
 
-// Close cancels the context to stop the GCP receiver,
+// Stop cancels the context to stop the GCP receiver,
 // marks all unread messages from the channel the client did not receive them,
-// waits the GCP receiver will stop and releases the GCP subscriber client.
-func (s *Subscriber) Close() error {
+// waits the GCP receiver will stop and releases the GCP Pub/Sub client.
+func (s *Subscriber) Stop() error {
 	if s == nil {
 		return nil
 	}

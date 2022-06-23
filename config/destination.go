@@ -27,6 +27,9 @@ import (
 type Destination struct {
 	General
 
+	// TopicID is the configuration of the topic ID for the publisher client.
+	TopicID string `json:"topic_id" validate:"required,object_name"`
+
 	// BatchSize is the configuration of the batch size for the publisher client.
 	// It is the size of the batch of messages, on completing which the batch of messages will be published.
 	BatchSize int `json:"batch_size" validate:"gte=1,lte=1000,omitempty"`
@@ -45,6 +48,7 @@ func ParseDestination(cfg map[string]string) (Destination, error) {
 
 	destinationConfig := Destination{
 		General:    config,
+		TopicID:    cfg[models.ConfigTopicID],
 		BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
 		BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
 	}

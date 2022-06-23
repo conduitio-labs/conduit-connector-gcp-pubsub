@@ -32,10 +32,8 @@ func (s *Source) next(ctx context.Context) (sdk.Record, error) {
 		s.subscriber.AckMessagesCh <- msg
 
 		return sdk.Record{
-			Position: sdk.Position(msg.ID),
-			Metadata: map[string]string{
-				actionKey: insertValue,
-			},
+			Position:  sdk.Position(msg.ID),
+			Metadata:  msg.Attributes,
 			CreatedAt: msg.PublishTime,
 			Key: sdk.StructuredData{
 				idKey: msg.ID,
