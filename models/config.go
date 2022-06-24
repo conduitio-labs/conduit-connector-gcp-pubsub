@@ -21,7 +21,7 @@ const (
 	// ConfigClientEmail is the configuration name of the client's email for the GCP Pub/Sub client.
 	ConfigClientEmail = "clientEmail"
 
-	// ConfigProjectID is the configuration name of the project ID for the GCP Pub/Sub client.
+	// ConfigProjectID is the configuration name of the project id for the GCP Pub/Sub client.
 	ConfigProjectID = "projectId"
 
 	// ConfigSubscriptionID is the configuration name of the subscription id for the subscriber client.
