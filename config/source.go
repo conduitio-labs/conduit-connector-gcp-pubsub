@@ -24,7 +24,7 @@ type Source struct {
 	General
 
 	// SubscriptionID is the configuration of the subscription ID for the subscriber client.
-	SubscriptionID string `json:"subscription_id" validate:"required,object_name"`
+	SubscriptionID string `validate:"required,object_name"`
 }
 
 // ParseSource parses source configuration into a configuration Source struct.

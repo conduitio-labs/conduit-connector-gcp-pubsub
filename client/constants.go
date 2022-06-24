@@ -12,29 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package source
+package client
 
-import (
-	"context"
-
-	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
-	sdk "github.com/conduitio/conduit-connector-sdk"
-)
-
-// ack indicates successful processing of a Message passed.
-func (s *Source) ack(ctx context.Context) error {
-	if s.subscriber == nil {
-		return client.ErrClientIsNil
-	}
-
-	select {
-	case msg := <-s.subscriber.AckMessagesCh:
-		sdk.Logger(ctx).Debug().Str("message_id", msg.ID).Msg("got ack")
-
-		msg.Ack()
-
-		return nil
-	case <-ctx.Done():
-		return ctx.Err()
-	}
-}
+const IDKey = "id"

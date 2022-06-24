@@ -28,15 +28,15 @@ type Destination struct {
 	General
 
 	// TopicID is the configuration of the topic ID for the publisher client.
-	TopicID string `json:"topic_id" validate:"required,object_name"`
+	TopicID string `validate:"required,object_name"`
 
 	// BatchSize is the configuration of the batch size for the publisher client.
 	// It is the size of the batch of messages, on completing which the batch of messages will be published.
-	BatchSize int `json:"batch_size" validate:"gte=1,lte=1000,omitempty"`
+	BatchSize int `validate:"gte=1,lte=1000,omitempty"`
 
 	// BatchDelay is the configuration of the batch delay for the publisher client.
 	// It is the time delay, after which the batch of messages will be published.
-	BatchDelay time.Duration `json:"batch_delay" validate:"gte=1ms,lte=1s,omitempty"`
+	BatchDelay time.Duration `validate:"gte=1ms,lte=1s,omitempty"`
 }
 
 // ParseDestination parses destination configuration into a configuration Destination struct.

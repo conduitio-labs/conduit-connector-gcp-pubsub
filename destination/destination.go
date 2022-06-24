@@ -22,11 +22,17 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
+// A Publisher represents a publisher interface.
+type Publisher interface {
+	Publish(context.Context, sdk.Record, sdk.AckFunc)
+	Stop() error
+}
+
 // A Destination represents the destination connector.
 type Destination struct {
 	sdk.UnimplementedDestination
 	cfg       config.Destination
-	publisher client.PublisherInterface
+	publisher Publisher
 }
 
 // New initialises a new Destination.

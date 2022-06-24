@@ -23,12 +23,6 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-// A PublisherInterface represents a publisher interface.
-type PublisherInterface interface {
-	Publish(context.Context, sdk.Record, sdk.AckFunc)
-	Stop() error
-}
-
 // A Publisher represents a publisher struct with a GCP Pub/Sub client.
 type Publisher struct {
 	*pubSub
@@ -44,7 +38,7 @@ type result struct {
 }
 
 // NewPublisher initializes a new publisher client.
-func NewPublisher(ctx context.Context, cfg config.Destination) (PublisherInterface, error) {
+func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
 		return nil, fmt.Errorf("new pubsub client: %w", err)
