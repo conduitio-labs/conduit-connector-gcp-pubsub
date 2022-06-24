@@ -62,8 +62,6 @@ func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, erro
 			case <-cctx.Done():
 				return
 			case msg := <-publisher.resultsCh:
-				<-msg.publishResult.Ready()
-
 				_, err := msg.publishResult.Get(ctx)
 				err = msg.ackFunc(err)
 				if err != nil {
