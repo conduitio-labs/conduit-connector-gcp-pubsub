@@ -23,7 +23,7 @@ import (
 type Source struct {
 	General
 
-	// SubscriptionID is the configuration of the subscription ID for the subscriber client.
+	// SubscriptionID is the configuration of the subscription id for the subscriber client.
 	SubscriptionID string `validate:"required,object_name"`
 }
 

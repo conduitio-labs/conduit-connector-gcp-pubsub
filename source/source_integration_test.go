@@ -32,7 +32,7 @@ import (
 
 func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("read empty", func(t *testing.T) {
-		pubsubSource := New()
+		src := New()
 
 		ctx := context.Background()
 
@@ -42,17 +42,17 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Skip()
 		}
 
-		err = pubsubSource.Configure(ctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		record, err := pubsubSource.Read(ctx)
+		record, err := src.Read(ctx)
 		if err != sdk.ErrBackoffRetry {
 			t.Errorf("read error: got = %v, want = %v", err, sdk.ErrBackoffRetry)
 		}
@@ -61,14 +61,14 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Error("record should be empty")
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("configure, open and teardown", func(t *testing.T) {
-		pubsubSource := New()
+		src := New()
 
 		ctx := context.Background()
 
@@ -78,17 +78,17 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Skip()
 		}
 
-		err = pubsubSource.Configure(ctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -103,16 +103,16 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Skip()
 		}
 
-		pubsubSource := New()
+		src := New()
 
 		ctx := context.Background()
 
-		err = pubsubSource.Configure(ctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
@@ -125,7 +125,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for {
-			record, err := pubsubSource.Read(ctx)
+			record, err := src.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
 					continue
@@ -134,7 +134,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = pubsubSource.Ack(ctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -146,7 +146,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -174,16 +174,16 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Skip()
 		}
 
-		pubsubSource := New()
+		src := New()
 
 		ctx := context.Background()
 
-		err = pubsubSource.Configure(ctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
@@ -196,7 +196,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for {
-			record, err := pubsubSource.Read(ctx)
+			record, err := src.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
 					continue
@@ -205,7 +205,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = pubsubSource.Ack(ctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -217,18 +217,18 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
 		for {
-			record, err := pubsubSource.Read(ctx)
+			record, err := src.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
 					continue
@@ -237,7 +237,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = pubsubSource.Ack(ctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -249,12 +249,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
@@ -271,7 +271,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				}
 			}
 
-			record, err := pubsubSource.Read(ctx)
+			record, err := src.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
 					continue
@@ -280,7 +280,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = pubsubSource.Ack(ctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -292,7 +292,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -314,16 +314,16 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Skip()
 		}
 
-		pubsubSource := New()
+		src := New()
 
 		ctx := context.Background()
 
-		err = pubsubSource.Configure(ctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = pubsubSource.Open(ctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
@@ -347,7 +347,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				}
 			}
 
-			record, err := pubsubSource.Read(ctx)
+			record, err := src.Read(ctx)
 			if err != nil {
 				if err == sdk.ErrBackoffRetry {
 					continue
@@ -356,7 +356,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = pubsubSource.Ack(ctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -368,7 +368,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = pubsubSource.Teardown(ctx)
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}

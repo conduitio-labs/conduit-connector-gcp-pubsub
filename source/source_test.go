@@ -25,7 +25,7 @@ import (
 )
 
 func TestSource_Configure(t *testing.T) {
-	source := Source{}
+	src := Source{}
 
 	tests := []struct {
 		name        string
@@ -54,7 +54,7 @@ func TestSource_Configure(t *testing.T) {
 			},
 		},
 		{
-			name: "privateKey is empty",
+			name: "private key is empty",
 			in: map[string]string{
 				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
 				models.ConfigProjectID:      "pubsub-test",
@@ -64,7 +64,7 @@ func TestSource_Configure(t *testing.T) {
 			expectedErr: validator.RequiredErr(models.ConfigPrivateKey).Error(),
 		},
 		{
-			name: "clientEmail is empty",
+			name: "client email is empty",
 			in: map[string]string{
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
 				models.ConfigProjectID:      "pubsub-test",
@@ -74,7 +74,7 @@ func TestSource_Configure(t *testing.T) {
 			expectedErr: validator.RequiredErr(models.ConfigClientEmail).Error(),
 		},
 		{
-			name: "projectID is empty",
+			name: "project id is empty",
 			in: map[string]string{
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
 				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
@@ -84,7 +84,7 @@ func TestSource_Configure(t *testing.T) {
 			expectedErr: validator.RequiredErr(models.ConfigProjectID).Error(),
 		},
 		{
-			name: "subscriptionID is empty",
+			name: "subscription id is empty",
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
 				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
@@ -97,7 +97,7 @@ func TestSource_Configure(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := source.Configure(context.Background(), tt.in)
+			err := src.Configure(context.Background(), tt.in)
 			if err != nil {
 				if !tt.wantErr {
 					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.wantErr)
@@ -114,8 +114,8 @@ func TestSource_Configure(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(source.cfg, tt.want.cfg) {
-				t.Errorf("parse = %v, want %v", source.cfg, tt.want.cfg)
+			if !reflect.DeepEqual(src.cfg, tt.want.cfg) {
+				t.Errorf("parse = %v, want %v", src.cfg, tt.want.cfg)
 
 				return
 			}

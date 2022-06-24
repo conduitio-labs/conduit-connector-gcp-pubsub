@@ -22,13 +22,13 @@ const (
 	ConfigClientEmail = "clientEmail"
 
 	// ConfigProjectID is the configuration name of the project ID for the GCP Pub/Sub client.
-	ConfigProjectID = "projectID"
+	ConfigProjectID = "projectId"
 
-	// ConfigSubscriptionID is the configuration name of the subscription ID for the subscriber client.
-	ConfigSubscriptionID = "subscriptionID"
+	// ConfigSubscriptionID is the configuration name of the subscription id for the subscriber client.
+	ConfigSubscriptionID = "subscriptionId"
 
 	// ConfigTopicID is the configuration name of the topic id for the publisher client.
-	ConfigTopicID = "topicID"
+	ConfigTopicID = "topicId"
 
 	// ConfigBatchSize is the configuration name of the batch size for the publisher client.
 	ConfigBatchSize = "batchSize"

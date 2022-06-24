@@ -27,7 +27,7 @@ import (
 type Destination struct {
 	General
 
-	// TopicID is the configuration of the topic ID for the publisher client.
+	// TopicID is the configuration of the topic id for the publisher client.
 	TopicID string `validate:"required,object_name"`
 
 	// BatchSize is the configuration of the batch size for the publisher client.
