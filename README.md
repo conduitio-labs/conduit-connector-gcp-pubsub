@@ -34,5 +34,5 @@ All fields are required.
 |------------------|------------------------------------|--------------------------------------------------------------------------------|
 | `privateKey`     | private key to auth in a client    | -----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG\n-----END PRIVATE KEY-----\n |
 | `clientEmail`    | client email to auth in a client   | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
-| `projectID`      | project id to auth in a client     | conduit-pubsub                                                                 |
-| `subscriptionID` | subscription name to pull messages | conduit-subscription                                                           |
+| `projectId`      | project id to auth in a client     | conduit-pubsub                                                                 |
+| `subscriptionId` | subscription name to pull messages | conduit-subscription                                                           |

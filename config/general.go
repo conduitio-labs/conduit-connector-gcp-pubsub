@@ -30,7 +30,7 @@ type General struct {
 	// ClientEmail is the configuration of the client's email for the GCP Pub/Sub client.
 	ClientEmail string `json:"client_email" validate:"required,email"`
 
-	// ProjectID is the configuration of the project ID for the GCP Pub/Sub client.
+	// ProjectID is the configuration of the project id for the GCP Pub/Sub client.
 	ProjectID string `json:"project_id" validate:"required"`
 }
 

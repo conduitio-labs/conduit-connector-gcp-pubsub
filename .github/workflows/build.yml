@@ -20,9 +20,9 @@ jobs:
         env:
           privateKey: ${{ secrets.GCP_PUBSUB_PRIVATE_KEY }}
           clientEmail: ${{ secrets.GCP_PUBSUB_CLIENT_EMAIL }}
-          projectID: ${{ secrets.GCP_PUBSUB_PROJECT_ID }}
-          subscriptionID: ${{ secrets.GCP_PUBSUB_SUBSCRIPTION_ID }}
-          topicID: ${{ secrets.GCP_PUBSUB_TOPIC_ID }}
+          projectId: ${{ secrets.GCP_PUBSUB_PROJECT_ID }}
+          subscriptionId: ${{ secrets.GCP_PUBSUB_SUBSCRIPTION_ID }}
+          topicId: ${{ secrets.GCP_PUBSUB_TOPIC_ID }}
           batchSize: ${{ secrets.GCP_PUBSUB_BATCH_SIZE }}
           batchDelay: ${{ secrets.GCP_PUBSUB_BATCH_DELAY }}
         run: make test GOTEST_FLAGS="-v -count=1"
