@@ -71,6 +71,13 @@ func (d *Destination) WriteAsync(ctx context.Context, record sdk.Record, ackFunc
 	return nil
 }
 
+// Flush does nothing.
+func (d *Destination) Flush(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("got flush")
+
+	return nil
+}
+
 // Teardown gracefully closes connections.
 func (d *Destination) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
