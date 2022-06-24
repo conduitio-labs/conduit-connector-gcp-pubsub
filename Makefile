@@ -1,7 +1,7 @@
 .PHONY: build test
 
 build:
-	go build -o conduit-connector-gcp-pubsub cmd/gcp-pubsub/main.go
+	go build -o conduit-connector-gcp-pubsub cmd/gcppubsub/main.go
 
 test:
 	go test $(GOTEST_FLAGS) -race ./...

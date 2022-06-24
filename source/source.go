@@ -22,11 +22,18 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
+// A Subscriber represents a subscriber interface.
+type Subscriber interface {
+	Next(ctx context.Context) (sdk.Record, error)
+	Ack(context.Context) (string, error)
+	Stop() error
+}
+
 // A Source represents the source connector.
 type Source struct {
 	sdk.UnimplementedSource
 	cfg        config.Source
-	subscriber *client.Subscriber
+	subscriber Subscriber
 }
 
 // New initialises a new source.
@@ -60,7 +67,7 @@ func (s *Source) Open(ctx context.Context, _ sdk.Position) error {
 
 // Read returns the next sdk.Record.
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
-	r, err := s.next(ctx)
+	r, err := s.subscriber.Next(ctx)
 	if err != nil {
 		return sdk.Record{}, err
 	}
@@ -70,14 +77,19 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 
 // Ack indicates successful processing of a message passed.
 func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
-	sdk.Logger(ctx).Debug().Msg("got ack")
+	msgID, err := s.subscriber.Ack(ctx)
+	if err != nil {
+		return err
+	}
 
-	return s.ack(ctx)
+	sdk.Logger(ctx).Debug().Str("message_id", msgID).Msg("got ack")
+
+	return nil
 }
 
 // Teardown releases the GCP subscriber client.
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
-	return s.subscriber.Close()
+	return s.subscriber.Stop()
 }

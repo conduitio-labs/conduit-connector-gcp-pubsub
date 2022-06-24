@@ -69,6 +69,11 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "GCP Pub/Sub project id key.",
 			},
+			models.ConfigTopicID: {
+				Default:     "",
+				Required:    true,
+				Description: "GCP Pub/Sub topic id key.",
+			},
 			models.ConfigBatchSize: {
 				Default:     strconv.Itoa(pubsub.DefaultPublishSettings.CountThreshold),
 				Required:    false,

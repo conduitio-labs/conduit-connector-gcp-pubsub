@@ -31,38 +31,6 @@ import (
 )
 
 func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
-	t.Run("read, ack and teardown without gcp pubsub client initialization", func(t *testing.T) {
-		pubsubSource := New()
-
-		ctx := context.Background()
-
-		cfg, err := prepareConfig()
-		if err != nil {
-			t.Log(err)
-			t.Skip()
-		}
-
-		err = pubsubSource.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		_, err = pubsubSource.Read(ctx)
-		if err != client.ErrClientIsNil {
-			t.Errorf("read: got = %v, want = %v", err, client.ErrClientIsNil)
-		}
-
-		err = pubsubSource.Ack(ctx, nil)
-		if err != client.ErrClientIsNil {
-			t.Errorf("ack: got = %v, want = %v", err, client.ErrClientIsNil)
-		}
-
-		err = pubsubSource.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
-
 	t.Run("read empty", func(t *testing.T) {
 		pubsubSource := New()
 
@@ -516,12 +484,8 @@ func compareResult(record sdk.Record, id string, data []byte) error {
 		return fmt.Errorf("position: got = %v, want = %v", string(record.Position), id)
 	}
 
-	if !reflect.DeepEqual(record.Key, sdk.StructuredData{idKey: id}) {
+	if !reflect.DeepEqual(record.Key, sdk.StructuredData{client.IDKey: id}) {
 		return fmt.Errorf("key: got = %v, want = %v", string(record.Key.Bytes()), id)
-	}
-
-	if record.Metadata[actionKey] != insertValue {
-		return fmt.Errorf("action: got = %v, want = %v", record.Metadata[actionKey], insertValue)
 	}
 
 	if !reflect.DeepEqual(record.Payload.Bytes(), data) {

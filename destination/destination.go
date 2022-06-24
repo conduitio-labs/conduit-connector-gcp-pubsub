@@ -17,14 +17,22 @@ package destination
 import (
 	"context"
 
+	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
+// A Publisher represents a publisher interface.
+type Publisher interface {
+	Publish(context.Context, sdk.Record, sdk.AckFunc)
+	Stop() error
+}
+
 // A Destination represents the destination connector.
 type Destination struct {
 	sdk.UnimplementedDestination
-	cfg config.Destination
+	cfg       config.Destination
+	publisher Publisher
 }
 
 // New initialises a new Destination.
@@ -42,4 +50,30 @@ func (d *Destination) Configure(_ context.Context, cfgRaw map[string]string) err
 	d.cfg = cfg
 
 	return nil
+}
+
+// Open initializes a publisher client.
+func (d *Destination) Open(ctx context.Context) error {
+	publisher, err := client.NewPublisher(ctx, d.cfg)
+	if err != nil {
+		return err
+	}
+
+	d.publisher = publisher
+
+	return nil
+}
+
+// WriteAsync writes a record into a Destination.
+func (d *Destination) WriteAsync(ctx context.Context, record sdk.Record, ackFunc sdk.AckFunc) error {
+	d.publisher.Publish(ctx, record, ackFunc)
+
+	return nil
+}
+
+// Teardown gracefully closes connections.
+func (d *Destination) Teardown(ctx context.Context) error {
+	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
+
+	return d.publisher.Stop()
 }

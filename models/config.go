@@ -27,6 +27,9 @@ const (
 	// ConfigSubscriptionID is the configuration name of the subscription ID for the subscriber client.
 	ConfigSubscriptionID = "subscriptionID"
 
+	// ConfigTopicID is the configuration name of the topic id for the publisher client.
+	ConfigTopicID = "topicID"
+
 	// ConfigBatchSize is the configuration name of the batch size for the publisher client.
 	ConfigBatchSize = "batchSize"
 
@@ -41,6 +44,7 @@ func ConfigKeyName(fieldName string) string {
 		"ClientEmail":    ConfigClientEmail,
 		"ProjectID":      ConfigProjectID,
 		"SubscriptionID": ConfigSubscriptionID,
+		"TopicID":        ConfigTopicID,
 		"BatchSize":      ConfigBatchSize,
 		"BatchDelay":     ConfigBatchDelay,
 	}[fieldName]
