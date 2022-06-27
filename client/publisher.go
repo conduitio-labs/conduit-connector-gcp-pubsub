@@ -61,9 +61,10 @@ func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, erro
 			select {
 			case <-cctx.Done():
 				return
-			case msg := <-publisher.resultsCh:
-				_, err := msg.publishResult.Get(ctx)
-				err = msg.ackFunc(err)
+			case res := <-publisher.resultsCh:
+				_, err := res.publishResult.Get(ctx)
+
+				err = res.ackFunc(err)
 				if err != nil {
 					sdk.Logger(ctx).Err(err).Msg("failed to call ackFunc")
 				}

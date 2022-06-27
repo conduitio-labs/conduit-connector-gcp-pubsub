@@ -80,10 +80,7 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 			Position:  sdk.Position(msg.ID),
 			Metadata:  msg.Attributes,
 			CreatedAt: msg.PublishTime,
-			Key: sdk.StructuredData{
-				IDKey: msg.ID,
-			},
-			Payload: sdk.RawData(msg.Data),
+			Payload:   sdk.RawData(msg.Data),
 		}, nil
 	case err := <-s.errorCh:
 		return sdk.Record{}, err
