@@ -12,6 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package gcppubsub
 
-const IDKey = "id"
+import (
+	"github.com/conduitio/conduit-connector-gcp-pubsub/destination"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/source"
+	sdk "github.com/conduitio/conduit-connector-sdk"
+)
+
+// A Connector represents a sdk.Connector of GCP Pub/Sub.
+var Connector = sdk.Connector{
+	NewSpecification: Specification,
+	NewSource:        source.New,
+	NewDestination:   destination.New,
+}

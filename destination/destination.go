@@ -82,5 +82,9 @@ func (d *Destination) Flush(ctx context.Context) error {
 func (d *Destination) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
-	return d.publisher.Stop()
+	if d.publisher != nil {
+		return d.publisher.Stop()
+	}
+
+	return nil
 }

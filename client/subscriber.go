@@ -53,12 +53,11 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 	}
 
 	go func() {
-		err = subscriber.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
-			func(ctx context.Context, m *pubsub.Message) {
+		if err = subscriber.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
+			func(_ context.Context, m *pubsub.Message) {
 				subscriber.messagesCh <- m
 			},
-		)
-		if err != nil {
+		); err != nil {
 			subscriber.errorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
@@ -77,7 +76,6 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 		s.ackMessagesCh <- msg
 
 		return sdk.Record{
-			Position:  sdk.Position(msg.ID),
 			Metadata:  msg.Attributes,
 			CreatedAt: msg.PublishTime,
 			Payload:   sdk.RawData(msg.Data),
