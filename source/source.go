@@ -91,5 +91,9 @@ func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
-	return s.subscriber.Stop()
+	if s.subscriber != nil {
+		return s.subscriber.Stop()
+	}
+
+	return nil
 }

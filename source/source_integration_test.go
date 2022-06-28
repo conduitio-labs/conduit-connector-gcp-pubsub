@@ -19,24 +19,22 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
+	"strconv"
 	"testing"
 
-	"cloud.google.com/go/pubsub"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/destination"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"google.golang.org/api/option"
 )
 
 func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("read empty", func(t *testing.T) {
 		src := New()
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		cfg, err := prepareConfig()
+		cfg, err := prepareSrcConfig()
 		if err != nil {
 			t.Log(err)
 			t.Skip()
@@ -61,7 +59,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Error("record should be empty")
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -70,9 +70,10 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("configure, open and teardown", func(t *testing.T) {
 		src := New()
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
-		cfg, err := prepareConfig()
+		cfg, err := prepareSrcConfig()
 		if err != nil {
 			t.Log(err)
 			t.Skip()
@@ -88,7 +89,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -97,7 +100,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("publish and receive 1 message", func(t *testing.T) {
 		const messagesCount = 1
 
-		cfg, err := prepareConfig()
+		cfg, err := prepareSrcConfig()
 		if err != nil {
 			t.Log(err)
 			t.Skip()
@@ -105,7 +108,8 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		src := New()
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		err = src.Configure(ctx, cfg)
 		if err != nil {
@@ -117,7 +121,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		dataMap, err := generateAndPublish(ctx, cfg, messagesCount)
+		prepared, err := prepareData(messagesCount)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -146,12 +150,14 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		err = compareResults(records, dataMap)
+		err = compare(records, prepared)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
@@ -168,7 +174,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		var additionalRequestsCount = 20
 
-		cfg, err := prepareConfig()
+		cfg, err := prepareSrcConfig()
 		if err != nil {
 			t.Log(err)
 			t.Skip()
@@ -176,7 +182,8 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		src := New()
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		err = src.Configure(ctx, cfg)
 		if err != nil {
@@ -188,7 +195,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		dataMap, err := generateAndPublish(ctx, cfg, messagesCount)
+		prepared, err := prepareData(messagesCount)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -216,6 +223,11 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				break
 			}
 		}
+
+		cancel()
+
+		ctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
 
 		err = src.Teardown(ctx)
 		if err != nil {
@@ -249,6 +261,11 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
+		cancel()
+
+		ctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
+
 		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
@@ -292,12 +309,14 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		err = compareResults(records, dataMap)
+		err = compare(records, prepared)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
@@ -308,7 +327,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		var additionalRequestsCount = 500
 
-		cfg, err := prepareConfig()
+		cfg, err := prepareSrcConfig()
 		if err != nil {
 			t.Log(err)
 			t.Skip()
@@ -316,7 +335,8 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		src := New()
 
-		ctx := context.Background()
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
 
 		err = src.Configure(ctx, cfg)
 		if err != nil {
@@ -328,7 +348,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		dataMap, err := generateAndPublish(ctx, cfg, messagesCount)
+		prepared, err := prepareData(messagesCount)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -368,19 +388,21 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		err = compareResults(records, dataMap)
+		err = compare(records, prepared)
 		if err != nil {
 			t.Errorf(err.Error())
 		}
 	})
 }
 
-func prepareConfig() (map[string]string, error) {
+func prepareSrcConfig() (map[string]string, error) {
 	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
 	if privateKey == "" {
 		return map[string]string{}, errors.New("GCP_PUBSUB_PRIVATE_KEY env var must be set")
@@ -409,87 +431,103 @@ func prepareConfig() (map[string]string, error) {
 	}, nil
 }
 
-func initClient(ctx context.Context, cfg map[string]string) (*pubsub.Client, error) {
-	cfgSrc, err := config.ParseSource(cfg)
-	if err != nil {
-		return nil, fmt.Errorf("parse source config: %w", err)
+func prepareDestConfig() (map[string]string, error) {
+	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
+	if privateKey == "" {
+		return map[string]string{}, errors.New("GCP_PUBSUB_PRIVATE_KEY env var must be set")
 	}
 
-	credentialJSON, err := cfgSrc.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal creadential json: %w", err)
+	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
+	if clientEmail == "" {
+		return map[string]string{}, errors.New("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
 	}
 
-	client, err := pubsub.NewClient(ctx, cfgSrc.ProjectID, option.WithCredentialsJSON(credentialJSON))
-	if err != nil {
-		return nil, fmt.Errorf("init new client: %w", err)
+	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
+	if projectID == "" {
+		return map[string]string{}, errors.New("GCP_PUBSUB_PROJECT_ID env var must be set")
 	}
 
-	return client, nil
-}
-
-func generateAndPublish(ctx context.Context, cfg map[string]string, messagesCount int) (map[string][]byte, error) {
 	topicID := os.Getenv("GCP_PUBSUB_TOPIC_ID")
 	if topicID == "" {
-		return nil, errors.New("GCP_PUBSUB_TOPIC_ID env var must be set")
+		return map[string]string{}, errors.New("GCP_PUBSUB_TOPIC_ID env var must be set")
 	}
 
-	cli, err := initClient(ctx, cfg)
+	return map[string]string{
+		models.ConfigPrivateKey:  privateKey,
+		models.ConfigClientEmail: clientEmail,
+		models.ConfigProjectID:   projectID,
+		models.ConfigTopicID:     topicID,
+		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
+		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
+	}, nil
+}
+
+func prepareData(messagesCount int) (map[string]struct{}, error) {
+	const dataFmt = "{\"id\": %s}"
+
+	dest := destination.New()
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	cfg, err := prepareDestConfig()
 	if err != nil {
-		return nil, fmt.Errorf("init pub client: %w", err)
+		return nil, err
 	}
-	defer cli.Close()
 
-	topic := cli.Topic(topicID)
-	defer topic.Stop()
+	err = dest.Configure(ctx, cfg)
+	if err != nil {
+		return nil, fmt.Errorf("configure: %s", err.Error())
+	}
 
-	dataMap := make(map[string][]byte, messagesCount)
+	err = dest.Open(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open: %s", err.Error())
+	}
+
+	prepared := make(map[string]struct{}, messagesCount)
 
 	for i := 0; i < messagesCount; i++ {
-		data := []byte(fmt.Sprintf("{\"id\": \"%d\"}", i))
+		data := fmt.Sprintf(dataFmt, strconv.Itoa(i))
 
-		id, err := topic.Publish(ctx, &pubsub.Message{
-			Data: data,
-		}).Get(ctx)
+		err = dest.WriteAsync(ctx, sdk.Record{
+			Payload: sdk.RawData(data),
+		}, func(ackErr error) error {
+			if ackErr != nil {
+				return fmt.Errorf("ack func: %s", ackErr.Error())
+			}
+
+			return nil
+		})
 		if err != nil {
-			return nil, fmt.Errorf("publish: %w", err)
+			return nil, fmt.Errorf("write async: %s", err.Error())
 		}
 
-		dataMap[id] = data
+		prepared[data] = struct{}{}
 	}
 
-	return dataMap, nil
+	err = dest.Flush(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("flush: %s", err.Error())
+	}
+
+	cancel()
+
+	err = dest.Teardown(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("teardown: %s", err.Error())
+	}
+
+	return prepared, nil
 }
 
-func compareResults(records []sdk.Record, dataMap map[string][]byte) error {
+func compare(records []sdk.Record, prepared map[string]struct{}) error {
 	for i := range records {
-		id := string(records[i].Position)
+		payload := string(records[i].Payload.Bytes())
 
-		data, ok := dataMap[id]
-		if !ok {
-			return fmt.Errorf("no data in the map by id: %s", id)
+		if _, ok := prepared[payload]; !ok {
+			return fmt.Errorf("no data in the map by data: %s", payload)
 		}
-
-		err := compareResult(records[i], id, data)
-		if err != nil {
-			return fmt.Errorf("compare result: %w", err)
-		}
-	}
-
-	return nil
-}
-
-func compareResult(record sdk.Record, id string, data []byte) error {
-	if string(record.Position) != id {
-		return fmt.Errorf("position: got = %v, want = %v", string(record.Position), id)
-	}
-
-	if !reflect.DeepEqual(record.Key, sdk.StructuredData{client.IDKey: id}) {
-		return fmt.Errorf("key: got = %v, want = %v", string(record.Key.Bytes()), id)
-	}
-
-	if !reflect.DeepEqual(record.Payload.Bytes(), data) {
-		return fmt.Errorf("payload: got = %v, want = %v", string(record.Payload.Bytes()), string(data))
 	}
 
 	return nil
