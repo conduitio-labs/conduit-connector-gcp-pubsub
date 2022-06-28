@@ -20,7 +20,7 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-// A Connector represents a sdk.Connector of GCP Pub/Sub.
+// Connector represents a sdk.Connector of GCP Pub/Sub.
 var Connector = sdk.Connector{
 	NewSpecification: Specification,
 	NewSource:        source.New,
