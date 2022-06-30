@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package destination
+package gcppubsub
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
@@ -31,17 +30,32 @@ import (
 	"google.golang.org/api/option"
 )
 
-func TestDestination_WriteAsync(t *testing.T) {
-	const (
-		hello    = "Hello, 世界"
-		topicFmt = "acceptance-test-topic-%s"
+type driver struct {
+	sdk.ConfigurableAcceptanceTestDriver
+}
 
-		ignoredTopFunction = "go.opencensus.io/stats/view.(*worker).start"
+// GenerateRecord generates a new record.
+func (d driver) GenerateRecord(_ *testing.T) sdk.Record {
+	return sdk.Record{
+		Position:  nil,
+		Metadata:  nil,
+		CreatedAt: time.Now(),
+		Key:       nil,
+		Payload:   sdk.RawData(uuid.New().String()),
+	}
+}
+
+func TestAcceptance(t *testing.T) {
+	const (
+		topicFmt = "acceptance-test-topic-%s"
+		subFmt   = "acceptance-test-subscription-%s"
 	)
 
 	var (
 		ctx     = context.Background()
 		topicID = fmt.Sprintf(topicFmt, uuid.New().String())
+
+		subscriptionIDs []string
 	)
 
 	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
@@ -59,7 +73,13 @@ func TestDestination_WriteAsync(t *testing.T) {
 		t.Skip("GCP_PUBSUB_PROJECT_ID env var must be set")
 	}
 
-	cfg := map[string]string{
+	srcCfg := map[string]string{
+		models.ConfigPrivateKey:  privateKey,
+		models.ConfigClientEmail: clientEmail,
+		models.ConfigProjectID:   projectID,
+	}
+
+	dstCfg := map[string]string{
 		models.ConfigPrivateKey:  privateKey,
 		models.ConfigClientEmail: clientEmail,
 		models.ConfigProjectID:   projectID,
@@ -68,106 +88,50 @@ func TestDestination_WriteAsync(t *testing.T) {
 		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
 	}
 
-	credential, err := getCredential(cfg)
+	credential, err := getCredential(srcCfg)
 	if err != nil {
 		t.Error(err)
 	}
 
 	if err = createTopic(ctx, projectID, topicID, credential); err != nil {
-		t.Errorf("create topic: %s", err.Error())
+		t.Error(err)
 	}
 
 	defer func() {
-		if err = deleteTopic(ctx, projectID, topicID, credential); err != nil {
-			t.Errorf("failed to delete topic: %s", err.Error())
+		if err = cleanup(ctx, projectID, topicID, subscriptionIDs, credential); err != nil {
+			t.Errorf("failed to cleanup resources: %s", err.Error())
 		}
 	}()
 
-	t.Run("success case", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
+	sdk.AcceptanceTest(t, driver{
+		ConfigurableAcceptanceTestDriver: sdk.ConfigurableAcceptanceTestDriver{
+			Config: sdk.ConfigurableAcceptanceTestDriverConfig{
+				Connector:         Connector,
+				SourceConfig:      srcCfg,
+				DestinationConfig: dstCfg,
+				BeforeTest: func(t *testing.T) {
+					subscriptionID := fmt.Sprintf(subFmt, uuid.New().String())
 
-		dest := New()
+					srcCfg[models.ConfigSubscriptionID] = subscriptionID
 
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
+					err = createSubscription(ctx, projectID, topicID, subscriptionID, credential)
+					if err != nil {
+						t.Errorf("failed to create subscription: %s", err.Error())
+					}
 
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(hello),
-		}, func(ackErr error) error {
-			if ackErr != nil {
-				t.Errorf("ack func: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
-		}
-
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
-		}
-
-		err = dest.Teardown(context.Background())
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
-
-	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
-		const expectedErrMsg = "item size exceeds bundle byte limit"
-
-		var sb strings.Builder
-
-		// create string which length is more than 10mb
-		for i := 0; i < 806600; i++ {
-			sb.WriteString(hello)
-		}
-
-		dest := New()
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(bytes.NewBufferString(sb.String()).Bytes()),
-		}, func(ackErr error) error {
-			if ackErr.Error() != expectedErrMsg {
-				t.Errorf("ack funk: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
-		}
-
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
-		}
-
-		err = dest.Teardown(context.Background())
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
+					subscriptionIDs = append(subscriptionIDs, subscriptionID)
+				},
+				GoleakOptions: []goleak.Option{
+					// the go.opencensus.io module is used indirectly in the cloud.google.com/go/pubsub module
+					goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
+				},
+				Skip: []string{
+					// skip this test because it expects to receive data according to the FIFO principle.
+					// GCP returns the data in random order
+					"TestDestination_WriteAsync_Success",
+				},
+			},
+		},
 	})
 }
 
@@ -195,12 +159,41 @@ func createTopic(ctx context.Context, projectID, topicID string, credential []by
 	return nil
 }
 
-func deleteTopic(ctx context.Context, projectID, topicID string, credential []byte) error {
+func createSubscription(
+	ctx context.Context, projectID, topicID, subscriptionID string, credential []byte,
+) error {
 	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
 	}
 	defer client.Close()
+
+	topic := client.Topic(topicID)
+	defer topic.Stop()
+
+	if _, err = client.CreateSubscription(ctx, subscriptionID, pubsub.SubscriptionConfig{
+		Topic: topic,
+	}); err != nil {
+		return fmt.Errorf("create subscription: %w", err)
+	}
+
+	return nil
+}
+
+func cleanup(
+	ctx context.Context, projectID, topicID string, subscriptionIDs []string, credential []byte,
+) error {
+	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
+	if err != nil {
+		return fmt.Errorf("new client: %w", err)
+	}
+	defer client.Close()
+
+	for i := range subscriptionIDs {
+		if err = client.Subscription(subscriptionIDs[i]).Delete(ctx); err != nil {
+			return fmt.Errorf("delete subscription %s: %w", subscriptionIDs[i], err)
+		}
+	}
 
 	if err = client.Topic(topicID).Delete(ctx); err != nil {
 		return fmt.Errorf("delete topic: %w", err)

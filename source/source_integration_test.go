@@ -16,31 +16,100 @@ package source
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"testing"
 
+	"cloud.google.com/go/pubsub"
+	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/destination"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/google/uuid"
+	"go.uber.org/goleak"
+	"google.golang.org/api/option"
 )
 
 func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
+	const (
+		topicFmt = "acceptance-test-topic-%s"
+		subFmt   = "acceptance-test-subscription-%s"
+
+		ignoredTopFunction = "go.opencensus.io/stats/view.(*worker).start"
+	)
+
+	var (
+		ctx            = context.Background()
+		topicID        = fmt.Sprintf(topicFmt, uuid.New().String())
+		subscriptionID = fmt.Sprintf(subFmt, uuid.New().String())
+	)
+
+	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
+	if privateKey == "" {
+		t.Skip("GCP_PUBSUB_PRIVATE_KEY env var must be set")
+	}
+
+	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
+	if clientEmail == "" {
+		t.Skip("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
+	}
+
+	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("GCP_PUBSUB_PROJECT_ID env var must be set")
+	}
+
+	cfg := map[string]string{
+		models.ConfigPrivateKey:  privateKey,
+		models.ConfigClientEmail: clientEmail,
+		models.ConfigProjectID:   projectID,
+	}
+
+	srcCfg := map[string]string{
+		models.ConfigPrivateKey:     privateKey,
+		models.ConfigClientEmail:    clientEmail,
+		models.ConfigProjectID:      projectID,
+		models.ConfigSubscriptionID: subscriptionID,
+	}
+
+	dstCfg := map[string]string{
+		models.ConfigPrivateKey:  privateKey,
+		models.ConfigClientEmail: clientEmail,
+		models.ConfigProjectID:   projectID,
+		models.ConfigTopicID:     topicID,
+		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
+		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
+	}
+
+	credential, err := getCredential(cfg)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if err = createTopic(ctx, projectID, topicID, credential); err != nil {
+		t.Errorf("create topic: %s", err.Error())
+	}
+
+	if err = createSubscription(ctx, projectID, topicID, subscriptionID, credential); err != nil {
+		t.Errorf("create subscription: %s", err.Error())
+	}
+
+	defer func() {
+		if err = cleanup(ctx, projectID, topicID, subscriptionID, credential); err != nil {
+			t.Errorf("failed to cleanup resources: %s", err.Error())
+		}
+	}()
+
 	t.Run("read empty", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
+
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		cfg, err := prepareSrcConfig()
-		if err != nil {
-			t.Log(err)
-			t.Skip()
-		}
-
-		err = src.Configure(ctx, cfg)
+		err = src.Configure(ctx, srcCfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
@@ -68,18 +137,14 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("configure, open and teardown", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
+
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		cfg, err := prepareSrcConfig()
-		if err != nil {
-			t.Log(err)
-			t.Skip()
-		}
-
-		err = src.Configure(ctx, cfg)
+		err = src.Configure(ctx, srcCfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
@@ -98,20 +163,16 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("publish and receive 1 message", func(t *testing.T) {
-		const messagesCount = 1
+		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
 
-		cfg, err := prepareSrcConfig()
-		if err != nil {
-			t.Log(err)
-			t.Skip()
-		}
+		const messagesCount = 1
 
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, cfg)
+		err = src.Configure(ctx, srcCfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
@@ -121,7 +182,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount)
+		prepared, err := prepareData(messagesCount, dstCfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -165,6 +226,8 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 	t.Run("publish and receive 30 messages in a row with starts and stops, "+
 		"and with additional 20 requests", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
+
 		const (
 			messagesCount = 30
 
@@ -174,18 +237,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		var additionalRequestsCount = 20
 
-		cfg, err := prepareSrcConfig()
-		if err != nil {
-			t.Log(err)
-			t.Skip()
-		}
-
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, cfg)
+		err = src.Configure(ctx, srcCfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
@@ -195,7 +252,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount)
+		prepared, err := prepareData(messagesCount, dstCfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -226,13 +283,13 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		cancel()
 
-		ctx, cancel = context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Teardown(ctx)
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
+
+		ctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
 
 		err = src.Open(ctx, nil)
 		if err != nil {
@@ -263,13 +320,13 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		cancel()
 
-		ctx, cancel = context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Teardown(ctx)
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
+
+		ctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
 
 		err = src.Open(ctx, nil)
 		if err != nil {
@@ -323,22 +380,18 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("publish 2500 messages in a row with 500 additional requests", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
+
 		const messagesCount = 2500
 
 		var additionalRequestsCount = 500
-
-		cfg, err := prepareSrcConfig()
-		if err != nil {
-			t.Log(err)
-			t.Skip()
-		}
 
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, cfg)
+		err = src.Configure(ctx, srcCfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
@@ -348,7 +401,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount)
+		prepared, err := prepareData(messagesCount, dstCfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -402,67 +455,68 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 }
 
-func prepareSrcConfig() (map[string]string, error) {
-	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
-	if privateKey == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_PRIVATE_KEY env var must be set")
-	}
-
-	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
-	if clientEmail == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
-	}
-
-	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
-	if projectID == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_PROJECT_ID env var must be set")
-	}
-
-	subscriptionID := os.Getenv("GCP_PUBSUB_SUBSCRIPTION_ID")
-	if subscriptionID == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_SUBSCRIPTION_ID env var must be set")
-	}
-
-	return map[string]string{
-		models.ConfigPrivateKey:     privateKey,
-		models.ConfigClientEmail:    clientEmail,
-		models.ConfigProjectID:      projectID,
-		models.ConfigSubscriptionID: subscriptionID,
-	}, nil
+func getCredential(src map[string]string) ([]byte, error) {
+	return config.General{
+		PrivateKey:  src[models.ConfigPrivateKey],
+		ClientEmail: src[models.ConfigClientEmail],
+		ProjectID:   src[models.ConfigProjectID],
+	}.Marshal()
 }
 
-func prepareDestConfig() (map[string]string, error) {
-	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
-	if privateKey == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_PRIVATE_KEY env var must be set")
+func createTopic(ctx context.Context, projectID, topicID string, credential []byte) error {
+	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
+	if err != nil {
+		return fmt.Errorf("new client: %w", err)
 	}
+	defer client.Close()
 
-	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
-	if clientEmail == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
+	topic, err := client.CreateTopic(ctx, topicID)
+	if err != nil {
+		return fmt.Errorf("create topic: %w", err)
 	}
+	topic.Stop()
 
-	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
-	if projectID == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_PROJECT_ID env var must be set")
-	}
-
-	topicID := os.Getenv("GCP_PUBSUB_TOPIC_ID")
-	if topicID == "" {
-		return map[string]string{}, errors.New("GCP_PUBSUB_TOPIC_ID env var must be set")
-	}
-
-	return map[string]string{
-		models.ConfigPrivateKey:  privateKey,
-		models.ConfigClientEmail: clientEmail,
-		models.ConfigProjectID:   projectID,
-		models.ConfigTopicID:     topicID,
-		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
-		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
-	}, nil
+	return nil
 }
 
-func prepareData(messagesCount int) (map[string]struct{}, error) {
+func createSubscription(ctx context.Context, projectID, topicID, subscriptionID string, credential []byte) error {
+	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
+	if err != nil {
+		return fmt.Errorf("new client: %w", err)
+	}
+	defer client.Close()
+
+	topic := client.Topic(topicID)
+	defer topic.Stop()
+
+	if _, err = client.CreateSubscription(ctx, subscriptionID, pubsub.SubscriptionConfig{
+		Topic: topic,
+	}); err != nil {
+		return fmt.Errorf("create subscription: %w", err)
+	}
+
+	return nil
+}
+
+func cleanup(ctx context.Context, projectID, topicID, subscriptionID string, credential []byte) error {
+	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
+	if err != nil {
+		return fmt.Errorf("new client: %w", err)
+	}
+	defer client.Close()
+
+	if err = client.Subscription(subscriptionID).Delete(ctx); err != nil {
+		return fmt.Errorf("delete subscription: %w", err)
+	}
+
+	if err = client.Topic(topicID).Delete(ctx); err != nil {
+		return fmt.Errorf("delete topic: %w", err)
+	}
+
+	return nil
+}
+
+func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct{}, error) {
 	const dataFmt = "{\"id\": %s}"
 
 	dest := destination.New()
@@ -470,12 +524,7 @@ func prepareData(messagesCount int) (map[string]struct{}, error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	cfg, err := prepareDestConfig()
-	if err != nil {
-		return nil, err
-	}
-
-	err = dest.Configure(ctx, cfg)
+	err := dest.Configure(ctx, dstCfg)
 	if err != nil {
 		return nil, fmt.Errorf("configure: %s", err.Error())
 	}
