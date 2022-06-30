@@ -76,6 +76,7 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 		s.ackMessagesCh <- msg
 
 		return sdk.Record{
+			Position:  sdk.Position(msg.ID),
 			Metadata:  msg.Attributes,
 			CreatedAt: msg.PublishTime,
 			Payload:   sdk.RawData(msg.Data),
@@ -106,6 +107,11 @@ func (s *Subscriber) Ack(ctx context.Context) (string, error) {
 // waits the GCP receiver will stop and releases the GCP Pub/Sub client.
 func (s *Subscriber) Stop() error {
 	s.ctxCancel()
+
+	close(s.ackMessagesCh)
+	for msg := range s.ackMessagesCh {
+		msg.Nack()
+	}
 
 	for msg := range s.messagesCh {
 		msg.Nack()

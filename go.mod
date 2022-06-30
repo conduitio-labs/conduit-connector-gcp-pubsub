@@ -6,6 +6,8 @@ require (
 	cloud.google.com/go/pubsub v1.22.2
 	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220530152250-733149cddc0b
 	github.com/go-playground/validator/v10 v10.11.0
+	github.com/google/uuid v1.1.2
+	go.uber.org/goleak v1.1.12
 	go.uber.org/multierr v1.8.0
 	google.golang.org/api v0.83.0
 )
@@ -36,7 +38,6 @@ require (
 	go.buf.build/library/go-grpc/conduitio/conduit-connector-protocol v1.4.1 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/goleak v1.1.12 // indirect
 	golang.org/x/crypto v0.0.0-20211215165025-cf75a172585e // indirect
 	golang.org/x/net v0.0.0-20220607020251-c690dde0001d // indirect
 	golang.org/x/oauth2 v0.0.0-20220524215830-622c5d57e401 // indirect

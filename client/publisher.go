@@ -94,5 +94,5 @@ func (p *Publisher) Stop() error {
 	p.ctxCancel()
 	p.topic.Stop()
 
-	return p.client.Close()
+	return p.pubSub.close()
 }
