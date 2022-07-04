@@ -21,20 +21,22 @@ import (
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/gammazero/deque"
 )
 
-// A Subscriber represents a subscriber struct with a GCP Pub/Sub client.
+// Subscriber represents a struct with a GCP Pub/Sub client,
+// queues for messages, channels and a function to cancel the context.
 type Subscriber struct {
 	*pubSub
 
-	messagesCh    chan *pubsub.Message
-	ackMessagesCh chan *pubsub.Message
-	errorCh       chan error
-	canceledCh    chan struct{}
-	ctxCancel     context.CancelFunc
+	msgDeque   *deque.Deque[*pubsub.Message]
+	ackDeque   *deque.Deque[*pubsub.Message]
+	errorCh    chan error
+	canceledCh chan struct{}
+	ctxCancel  context.CancelFunc
 }
 
-// NewSubscriber initializes a new subscriber client and starts receiving a messages to struct channels.
+// NewSubscriber initializes a new subscriber client and starts receiving a messages to the queue.
 func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
@@ -43,37 +45,48 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 
 	cctx, cancel := context.WithCancel(ctx)
 
-	subscriber := &Subscriber{
-		pubSub:        ps,
-		messagesCh:    make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
-		ackMessagesCh: make(chan *pubsub.Message, pubsub.DefaultReceiveSettings.MaxOutstandingMessages),
-		errorCh:       make(chan error),
-		canceledCh:    make(chan struct{}),
-		ctxCancel:     cancel,
+	sub := &Subscriber{
+		pubSub:     ps,
+		msgDeque:   deque.New[*pubsub.Message](),
+		ackDeque:   deque.New[*pubsub.Message](),
+		errorCh:    make(chan error),
+		canceledCh: make(chan struct{}),
+		ctxCancel:  cancel,
 	}
 
 	go func() {
-		if err = subscriber.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
+		if err = sub.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
 			func(_ context.Context, m *pubsub.Message) {
-				subscriber.messagesCh <- m
+				sub.msgDeque.PushBack(m)
 			},
 		); err != nil {
-			subscriber.errorCh <- fmt.Errorf("subscription receive: %w", err)
+			sub.errorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
-		close(subscriber.messagesCh)
-
-		subscriber.canceledCh <- struct{}{}
+		sub.canceledCh <- struct{}{}
 	}()
 
-	return subscriber, nil
+	return sub, nil
 }
 
-// Next receives and returns the next record or an error.
+// Next returns the next record or an error.
 func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 	select {
-	case msg := <-s.messagesCh:
-		s.ackMessagesCh <- msg
+	case err := <-s.errorCh:
+		return sdk.Record{}, err
+	case <-ctx.Done():
+		return sdk.Record{}, ctx.Err()
+	default:
+		if s.msgDeque.Len() == 0 {
+			return sdk.Record{}, sdk.ErrBackoffRetry
+		}
+
+		msg := s.msgDeque.PopFront()
+		if msg == nil {
+			return sdk.Record{}, sdk.ErrBackoffRetry
+		}
+
+		s.ackDeque.PushBack(msg)
 
 		return sdk.Record{
 			Position:  sdk.Position(msg.ID),
@@ -81,40 +94,37 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 			CreatedAt: msg.PublishTime,
 			Payload:   sdk.RawData(msg.Data),
 		}, nil
-	case err := <-s.errorCh:
-		return sdk.Record{}, err
-	case <-ctx.Done():
-		return sdk.Record{}, ctx.Err()
-	default:
-		return sdk.Record{}, sdk.ErrBackoffRetry
 	}
 }
 
 // Ack indicates successful processing of a Message passed.
-func (s *Subscriber) Ack(ctx context.Context) (string, error) {
+func (s *Subscriber) Ack(ctx context.Context) error {
 	select {
-	case msg := <-s.ackMessagesCh:
-		msg.Ack()
-
-		return msg.ID, nil
 	case <-ctx.Done():
-		return "", ctx.Err()
+		return ctx.Err()
+	default:
+		if s.ackDeque.Len() == 0 {
+			return nil
+		}
+
+		s.ackDeque.PopFront().Ack()
+
+		return nil
 	}
 }
 
 // Stop cancels the context to stop the GCP receiver,
-// marks all unread messages from the channel the client did not receive them,
+// marks all unread messages the client did not receive them,
 // waits the GCP receiver will stop and releases the GCP Pub/Sub client.
 func (s *Subscriber) Stop() error {
 	s.ctxCancel()
 
-	close(s.ackMessagesCh)
-	for msg := range s.ackMessagesCh {
-		msg.Nack()
+	for s.msgDeque.Len() > 0 {
+		s.msgDeque.PopFront().Nack()
 	}
 
-	for msg := range s.messagesCh {
-		msg.Nack()
+	for s.ackDeque.Len() > 0 {
+		s.ackDeque.PopFront().Nack()
 	}
 
 	<-s.canceledCh
