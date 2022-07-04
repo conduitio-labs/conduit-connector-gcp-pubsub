@@ -17,6 +17,7 @@ package client
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
@@ -29,6 +30,7 @@ import (
 type Subscriber struct {
 	*pubSub
 
+	lock       sync.Mutex
 	msgDeque   *deque.Deque[*pubsub.Message]
 	ackDeque   *deque.Deque[*pubsub.Message]
 	errorCh    chan error
@@ -57,6 +59,9 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 	go func() {
 		if err = sub.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
 			func(_ context.Context, m *pubsub.Message) {
+				sub.lock.Lock()
+				defer sub.lock.Unlock()
+
 				sub.msgDeque.PushBack(m)
 			},
 		); err != nil {
@@ -77,6 +82,9 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 	case <-ctx.Done():
 		return sdk.Record{}, ctx.Err()
 	default:
+		s.lock.Lock()
+		defer s.lock.Unlock()
+
 		if s.msgDeque.Len() == 0 {
 			return sdk.Record{}, sdk.ErrBackoffRetry
 		}
@@ -103,6 +111,9 @@ func (s *Subscriber) Ack(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
+		s.lock.Lock()
+		defer s.lock.Unlock()
+
 		if s.ackDeque.Len() == 0 {
 			return nil
 		}
@@ -118,6 +129,9 @@ func (s *Subscriber) Ack(ctx context.Context) error {
 // waits the GCP receiver will stop and releases the GCP Pub/Sub client.
 func (s *Subscriber) Stop() error {
 	s.ctxCancel()
+
+	s.lock.Lock()
+	defer s.lock.Unlock()
 
 	for s.msgDeque.Len() > 0 {
 		s.msgDeque.PopFront().Nack()
