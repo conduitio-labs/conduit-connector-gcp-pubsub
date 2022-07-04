@@ -25,7 +25,7 @@ import (
 // A Subscriber represents a subscriber interface.
 type Subscriber interface {
 	Next(ctx context.Context) (sdk.Record, error)
-	Ack(context.Context) (string, error)
+	Ack(context.Context) error
 	Stop() error
 }
 
@@ -77,14 +77,9 @@ func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
 
 // Ack indicates successful processing of a message passed.
 func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
-	msgID, err := s.subscriber.Ack(ctx)
-	if err != nil {
-		return err
-	}
+	sdk.Logger(ctx).Debug().Msg("got ack")
 
-	sdk.Logger(ctx).Debug().Str("message_id", msgID).Msg("got ack")
-
-	return nil
+	return s.subscriber.Ack(ctx)
 }
 
 // Teardown releases the GCP subscriber client.

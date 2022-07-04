@@ -16,10 +16,12 @@ package source
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 	"testing"
+	"time"
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
@@ -27,6 +29,7 @@ import (
 	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/google/uuid"
+	"github.com/jpillora/backoff"
 	"go.uber.org/goleak"
 	"google.golang.org/api/option"
 )
@@ -190,12 +193,8 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for {
-			record, err := src.Read(ctx)
+			record, err := readWithBackoffRetry(ctx, src)
 			if err != nil {
-				if err == sdk.ErrBackoffRetry {
-					continue
-				}
-
 				t.Errorf("read: %s", err.Error())
 			}
 
@@ -224,8 +223,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		}
 	})
 
-	t.Run("publish and receive 30 messages in a row with starts and stops, "+
-		"and with additional 20 requests", func(t *testing.T) {
+	t.Run("publish and receive 30 messages in a row with starts and stops", func(t *testing.T) {
 		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
 
 		const (
@@ -235,8 +233,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			secondStopMessagesCount = 17
 		)
 
-		var additionalRequestsCount = 20
-
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -259,13 +255,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		records := make([]sdk.Record, 0, messagesCount)
 
-		for {
-			record, err := src.Read(ctx)
+		for len(records) < firstStopMessagesCount {
+			record, err := readWithBackoffRetry(ctx, src)
 			if err != nil {
-				if err == sdk.ErrBackoffRetry {
-					continue
-				}
-
 				t.Errorf("read: %s", err.Error())
 			}
 
@@ -275,10 +267,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
-
-			if len(records) == firstStopMessagesCount {
-				break
-			}
 		}
 
 		cancel()
@@ -296,13 +284,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		for {
-			record, err := src.Read(ctx)
+		for len(records) < secondStopMessagesCount {
+			record, err := readWithBackoffRetry(ctx, src)
 			if err != nil {
-				if err == sdk.ErrBackoffRetry {
-					continue
-				}
-
 				t.Errorf("read: %s", err.Error())
 			}
 
@@ -312,10 +296,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
-
-			if len(records) == secondStopMessagesCount {
-				break
-			}
 		}
 
 		cancel()
@@ -333,24 +313,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("open: %s", err.Error())
 		}
 
-		i := 0
-		for {
-			// when all messages are received,
-			// make additionalRequestsCount additional queries to check that there are no more messages
-			if len(records) == messagesCount {
-				i++
-
-				if additionalRequestsCount == i {
-					break
-				}
-			}
-
-			record, err := src.Read(ctx)
+		for len(records) < messagesCount {
+			record, err := readWithBackoffRetry(ctx, src)
 			if err != nil {
-				if err == sdk.ErrBackoffRetry {
-					continue
-				}
-
 				t.Errorf("read: %s", err.Error())
 			}
 
@@ -360,10 +325,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
-
-			if len(records) == messagesCount {
-				break
-			}
 		}
 
 		cancel()
@@ -379,13 +340,11 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		}
 	})
 
-	t.Run("publish 2500 messages in a row with 500 additional requests", func(t *testing.T) {
+	t.Run("publish 2500 messages in a row", func(t *testing.T) {
 		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
 
 		const messagesCount = 2500
 
-		var additionalRequestsCount = 500
-
 		src := New()
 
 		ctx, cancel := context.WithCancel(context.Background())
@@ -408,24 +367,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		records := make([]sdk.Record, 0, messagesCount)
 
-		i := 0
-		for {
-			// when all messages are received,
-			// make additionalRequestsCount additional queries to check that there are no more messages
-			if len(records) == messagesCount {
-				i++
-
-				if additionalRequestsCount == i {
-					break
-				}
-			}
-
-			record, err := src.Read(ctx)
+		for len(records) < messagesCount {
+			record, err := readWithBackoffRetry(ctx, src)
 			if err != nil {
-				if err == sdk.ErrBackoffRetry {
-					continue
-				}
-
 				t.Errorf("read: %s", err.Error())
 			}
 
@@ -435,10 +379,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			}
 
 			records = append(records, record)
-
-			if len(records) == messagesCount {
-				break
-			}
 		}
 
 		cancel()
@@ -453,6 +393,29 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf(err.Error())
 		}
 	})
+}
+
+func readWithBackoffRetry(ctx context.Context, src sdk.Source) (sdk.Record, error) {
+	b := &backoff.Backoff{
+		Factor: 2,
+		Min:    time.Millisecond * 100,
+		Max:    time.Second,
+	}
+
+	for {
+		got, err := src.Read(ctx)
+
+		if errors.Is(err, sdk.ErrBackoffRetry) {
+			select {
+			case <-ctx.Done():
+				return sdk.Record{}, ctx.Err()
+			case <-time.After(b.Duration()):
+				continue
+			}
+		}
+
+		return got, err
+	}
 }
 
 func getCredential(src map[string]string) ([]byte, error) {
