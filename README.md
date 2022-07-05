@@ -27,9 +27,9 @@ A source connector represents the receiver of the messages from the GCP Pub/Sub.
 
 The callback function sends messages to the queue and `Read` method receives messages from this queue.
 
-`Ack` calls the acknowledge method the message was received.
+`Ack` calls the acknowledge method once the message was received.
 
-`Teardown` marks all unread messages from the queue the client did not receive them and releases the GCP subscriber client.
+`Teardown` marks all unread messages from the queue that the client has not received and releases the GCP subscriber client.
 
 #### Configuration
 The user can get the authorization data from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
