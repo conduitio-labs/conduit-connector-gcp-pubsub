@@ -16,31 +16,32 @@ package validator
 
 import "fmt"
 
-const invalidNameErrMsg = "must be 3-255 characters, start with a letter, and contain only the following characters: " +
-	"letters, numbers, dashes (-), periods (.), underscores (_), tildes (~), percents (%) or plus signs (+). " +
-	"Cannot start with goog."
-
 // RequiredErr returns the formatted required field error.
 func RequiredErr(name string) error {
-	return fmt.Errorf("%q value must be set", name)
+	return fmt.Errorf(requiredErrMsg, name)
+}
+
+// InvalidEmailErr returns the formatted email field error.
+func InvalidEmailErr(name string) error {
+	return fmt.Errorf(invalidEmailErrMsg, name)
 }
 
 // InvalidNameErr returns the formatted invalid name error.
 func InvalidNameErr(name string) error {
-	return fmt.Errorf("%q %s", name, invalidNameErrMsg)
+	return fmt.Errorf(invalidNameErrMsg, name)
 }
 
 // InvalidIntegerTypeErr returns the formatted invalid integer type error.
 func InvalidIntegerTypeErr(name string) error {
-	return fmt.Errorf("%q value must be an integer", name)
+	return fmt.Errorf(invalidIntegerTypeErrMsg, name)
 }
 
 // InvalidTimeDurationTypeErr returns the formatted invalid time duration type error.
 func InvalidTimeDurationTypeErr(name string) error {
-	return fmt.Errorf("%q value must be a time duration", name)
+	return fmt.Errorf(invalidTimeDurationErrMsg, name)
 }
 
 // OutOfRangeErr returns the formatted out of range error.
 func OutOfRangeErr(name string) error {
-	return fmt.Errorf("%q is out of range", name)
+	return fmt.Errorf(outOfRangeErrMsg, name)
 }

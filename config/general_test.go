@@ -80,6 +80,16 @@ func TestParseGeneral(t *testing.T) {
 			expectedErr: multierr.Combine(validator.RequiredErr(models.ConfigClientEmail),
 				validator.RequiredErr(models.ConfigProjectID)).Error(),
 		},
+		{
+			name: "invalid email",
+			in: map[string]string{
+				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail: "test-pubsub.com",
+				models.ConfigProjectID:   "test-pubsub",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidEmailErr(models.ConfigClientEmail).Error(),
+		},
 	}
 
 	for _, tt := range tests {
