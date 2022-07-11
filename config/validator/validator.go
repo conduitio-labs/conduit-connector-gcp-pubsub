@@ -25,8 +25,6 @@ import (
 	"go.uber.org/multierr"
 )
 
-const googPrefix = "goog"
-
 var (
 	validatorInstance *v.Validate
 	once              sync.Once
@@ -61,6 +59,8 @@ func Validate(s interface{}) error {
 			switch e.ActualTag() {
 			case "required":
 				err = multierr.Append(err, RequiredErr(models.ConfigKeyName(e.Field())))
+			case "email":
+				err = multierr.Append(err, InvalidEmailErr(models.ConfigKeyName(e.Field())))
 			case "object_name":
 				err = multierr.Append(err, InvalidNameErr(models.ConfigKeyName(e.Field())))
 			case "gte", "lte":
