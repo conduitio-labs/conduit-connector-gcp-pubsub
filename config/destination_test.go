@@ -97,6 +97,17 @@ func TestParseDestination(t *testing.T) {
 			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
 		},
 		{
+			name: "topic id does not start with a letter",
+			in: map[string]string{
+				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail: "test@test-pubsub.com",
+				models.ConfigProjectID:   "test-pubsub",
+				models.ConfigTopicID:     "1-test-top*",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+		},
+		{
 			name: "topic id has unsupported characters",
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
@@ -114,6 +125,28 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "goog-test-topic",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+		},
+		{
+			name: "topic id starts with Goog",
+			in: map[string]string{
+				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail: "test@test-pubsub.com",
+				models.ConfigProjectID:   "test-pubsub",
+				models.ConfigTopicID:     "Goog-test-topic",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+		},
+		{
+			name: "topic id starts with gooG",
+			in: map[string]string{
+				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail: "test@test-pubsub.com",
+				models.ConfigProjectID:   "test-pubsub",
+				models.ConfigTopicID:     "gooG-test-topic",
 			},
 			wantErr:     true,
 			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),

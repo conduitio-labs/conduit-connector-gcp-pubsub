@@ -72,6 +72,17 @@ func TestParseSource(t *testing.T) {
 			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
 		},
 		{
+			name: "subscription id does not start with a letter",
+			in: map[string]string{
+				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail:    "test@test-pubsub.com",
+				models.ConfigProjectID:      "test-pubsub",
+				models.ConfigSubscriptionID: "1-test-subscription",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+		},
+		{
 			name: "subscription id has unsupported characters",
 			in: map[string]string{
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
@@ -89,6 +100,28 @@ func TestParseSource(t *testing.T) {
 				models.ConfigClientEmail:    "test@test-pubsub.com",
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "goog-test-subscription",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+		},
+		{
+			name: "subscription id starts with Goog",
+			in: map[string]string{
+				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail:    "test@test-pubsub.com",
+				models.ConfigProjectID:      "test-pubsub",
+				models.ConfigSubscriptionID: "Goog-test-subscription",
+			},
+			wantErr:     true,
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+		},
+		{
+			name: "subscription id starts with gooG",
+			in: map[string]string{
+				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail:    "test@test-pubsub.com",
+				models.ConfigProjectID:      "test-pubsub",
+				models.ConfigSubscriptionID: "gooG-test-subscription",
 			},
 			wantErr:     true,
 			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
