@@ -29,7 +29,7 @@ var (
 	validatorInstance *v.Validate
 	once              sync.Once
 
-	isObjectNameOK = regexp.MustCompile(`^[a-zA-Z\d-._~%+]{3,255}$`).MatchString
+	isObjectNameValid = regexp.MustCompile(`^[a-zA-Z][a-zA-Z\d-._~%+]{2,254}$`).MatchString
 )
 
 // Get initializes and registers validation tags once, and returns validator instance.
@@ -73,9 +73,9 @@ func Validate(s interface{}) error {
 }
 
 func validateObjectName(fl v.FieldLevel) bool {
-	if strings.HasPrefix(fl.Field().String(), googPrefix) {
+	if strings.HasPrefix(strings.ToLower(fl.Field().String()), googPrefix) {
 		return false
 	}
 
-	return isObjectNameOK(fl.Field().String())
+	return isObjectNameValid(fl.Field().String())
 }
