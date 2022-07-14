@@ -19,9 +19,9 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 )
 
 func TestSource_Configure(t *testing.T) {
