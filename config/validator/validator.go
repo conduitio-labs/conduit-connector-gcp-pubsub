@@ -20,7 +20,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	v "github.com/go-playground/validator/v10"
 	"go.uber.org/multierr"
 )

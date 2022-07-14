@@ -18,8 +18,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 )
 
 func TestParseSource(t *testing.T) {

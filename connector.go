@@ -15,8 +15,8 @@
 package gcppubsub
 
 import (
-	"github.com/conduitio/conduit-connector-gcp-pubsub/destination"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/source"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 

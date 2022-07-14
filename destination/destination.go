@@ -17,8 +17,8 @@ package destination
 import (
 	"context"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/client"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/client"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 

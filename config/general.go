@@ -18,8 +18,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 )
 
 // A General represents a general configuration needed for GCP Pub/Sub client.

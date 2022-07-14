@@ -1,10 +1,10 @@
-module github.com/conduitio/conduit-connector-gcp-pubsub
+module github.com/conduitio-labs/conduit-connector-gcp-pubsub
 
 go 1.18
 
 require (
 	cloud.google.com/go/pubsub v1.22.2
-	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220530152250-733149cddc0b
+	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220607154716-0655cdd93a58
 	github.com/gammazero/deque v0.2.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/google/uuid v1.1.2

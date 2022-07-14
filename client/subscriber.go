@@ -20,7 +20,7 @@ import (
 	"sync"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/gammazero/deque"
 )

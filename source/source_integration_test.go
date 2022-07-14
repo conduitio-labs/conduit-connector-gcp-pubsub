@@ -24,9 +24,9 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/destination"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/google/uuid"
 	"github.com/jpillora/backoff"

@@ -19,8 +19,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/config/validator"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 )
 
 // A Destination represents a destination configuration needed for the publisher client.

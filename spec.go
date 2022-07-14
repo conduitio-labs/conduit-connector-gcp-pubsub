@@ -18,7 +18,7 @@ import (
 	"strconv"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/conduitio/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
