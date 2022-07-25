@@ -8,7 +8,7 @@ Fixes # (issue)
 
 ### Quick checks:
 
-- [ ] I have followed the [Code Guidelines](https://github.com/ConduitIO/conduit/blob/main/docs/code_guidelines.md).
-- [ ] There is no other [pull request](https://github.com/ConduitIO/conduit-connector-gcp-pubsub/pulls) for the same update/change.
+- [ ] I have followed the [Code Guidelines](https://github.com/conduitio/conduit/blob/main/docs/code_guidelines.md).
+- [ ] There is no other [pull request](https://github.com/conduitio-labs/conduit-connector-gcp-pubsub/pulls) for the same update/change.
 - [ ] I have written unit tests.
 - [ ] I have made sure that the PR is of reasonable size and can be easily reviewed.
