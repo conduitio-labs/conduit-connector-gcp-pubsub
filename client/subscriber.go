@@ -97,13 +97,8 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 
 		s.ackDeque.PushBack(msg)
 
-		position, err := s.getPosition()
-		if err != nil {
-			return sdk.Record{}, fmt.Errorf("get position: %w", err)
-		}
-
 		return sdk.Record{
-			Position:  position,
+			Position:  sdk.Position(uuid.New().String()),
 			Metadata:  msg.Attributes,
 			CreatedAt: msg.PublishTime,
 			Payload:   sdk.RawData(msg.Data),
@@ -150,14 +145,4 @@ func (s *Subscriber) Stop() error {
 	<-s.canceledCh
 
 	return s.pubSub.close()
-}
-
-// getPosition returns the current iterator position.
-func (*Subscriber) getPosition() (sdk.Position, error) {
-	uuidBytes, err := uuid.New().MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("marshal uuid: %w", err)
-	}
-
-	return uuidBytes, nil
 }
