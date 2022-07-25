@@ -58,7 +58,12 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 	}
 
 	go func() {
-		if err = sub.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
+		s := sub.pubSub.client.Subscription(cfg.SubscriptionID)
+
+		// set MaxExtension less than 0, to do not extend the ack deadline for each message
+		s.ReceiveSettings.MaxExtension = -1
+
+		if err = s.Receive(cctx,
 			func(_ context.Context, m *pubsub.Message) {
 				sub.lock.Lock()
 				defer sub.lock.Unlock()
