@@ -67,6 +67,9 @@ The user can get the authorization data from a JSON file by the following instru
 | `batchDelay`  | the time delay, after which the batch of messages will be published                            | false    | 100ms                                                                          |
 
 ### Known limitations
-The maximum message size in a publish request is **10Mb**.
-
-[Pub/Sub quotas and limits](https://cloud.google.com/pubsub/quotas)
+| resource                      | limitation     |
+|-------------------------------|----------------|
+| Message size (the data field) | **10MB**       | 
+| Attributes per message        | **100**        |
+| Attribute key size            | **256 bytes**  |
+| Attribute value size          | **1024 bytes** |
