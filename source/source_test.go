@@ -31,8 +31,7 @@ func TestSource_Configure(t *testing.T) {
 		name        string
 		in          map[string]string
 		want        Source
-		wantErr     bool
-		expectedErr string
+		expectedErr error
 	}{
 		{
 			name: "valid config",
@@ -60,8 +59,7 @@ func TestSource_Configure(t *testing.T) {
 				models.ConfigProjectID:      "pubsub-test",
 				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigPrivateKey).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigPrivateKey),
 		},
 		{
 			name: "client email is empty",
@@ -70,8 +68,7 @@ func TestSource_Configure(t *testing.T) {
 				models.ConfigProjectID:      "pubsub-test",
 				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigClientEmail).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigClientEmail),
 		},
 		{
 			name: "project id is empty",
@@ -80,8 +77,7 @@ func TestSource_Configure(t *testing.T) {
 				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
 				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigProjectID).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigProjectID),
 		},
 		{
 			name: "subscription id is empty",
@@ -90,8 +86,7 @@ func TestSource_Configure(t *testing.T) {
 				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
 				models.ConfigProjectID:   "pubsub-test",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigSubscriptionID),
 		},
 	}
 
@@ -99,14 +94,14 @@ func TestSource_Configure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := src.Configure(context.Background(), tt.in)
 			if err != nil {
-				if !tt.wantErr {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.wantErr)
+				if tt.expectedErr == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr, err.Error())
+				if err.Error() != tt.expectedErr.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
 
 					return
 				}

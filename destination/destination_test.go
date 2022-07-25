@@ -33,8 +33,7 @@ func TestDestination_Configure(t *testing.T) {
 		name        string
 		in          map[string]string
 		want        Destination
-		wantErr     bool
-		expectedErr string
+		expectedErr error
 	}{
 		{
 			name: "valid config with only required fields",
@@ -87,8 +86,7 @@ func TestDestination_Configure(t *testing.T) {
 				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
 				models.ConfigProjectID:   "pubsub-test",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigTopicID),
 		},
 	}
 
@@ -96,14 +94,14 @@ func TestDestination_Configure(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := dest.Configure(context.Background(), tt.in)
 			if err != nil {
-				if !tt.wantErr {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.wantErr)
+				if tt.expectedErr == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr, err.Error())
+				if err.Error() != tt.expectedErr.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
 
 					return
 				}

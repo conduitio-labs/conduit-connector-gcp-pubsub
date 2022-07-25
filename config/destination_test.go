@@ -29,8 +29,7 @@ func TestParseDestination(t *testing.T) {
 		name        string
 		in          map[string]string
 		want        Destination
-		wantErr     bool
-		expectedErr string
+		expectedErr error
 	}{
 		{
 			name: "valid config with only required fields",
@@ -80,8 +79,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "to",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id is too big",
@@ -93,8 +91,7 @@ func TestParseDestination(t *testing.T) {
 					"NCadTgrbUJKY6Lb6ARzyOY3bI3W6YjadDLTl47DIqA7zjYYQNIud9PHXgA0v3NVlk2AVLaziUwylawemiUJOee68ULPg" +
 					"GyBgoCIMAB7ukAgjN0fhGPeYART2yojioOp3w9mBPdklk7OY8rJQFCy5ii70byyHFqT3JG00kJTPzdPPdt53",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id does not start with a letter",
@@ -104,8 +101,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "1-test-top*",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id has unsupported characters",
@@ -115,8 +111,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "test-top*",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id starts with goog",
@@ -126,8 +121,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "goog-test-topic",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id starts with Goog",
@@ -137,8 +131,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "Goog-test-topic",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id starts with gooG",
@@ -148,8 +141,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "gooG-test-topic",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "batch size is maximum",
@@ -240,8 +232,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchSize:   "test",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidIntegerTypeErr(models.ConfigBatchSize).Error(),
+			expectedErr: validator.InvalidIntegerTypeErr(models.ConfigBatchSize),
 		},
 		{
 			name: "batch size is zero",
@@ -252,8 +243,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchSize:   "0",
 			},
-			wantErr:     true,
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize).Error(),
+			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize),
 		},
 		{
 			name: "batch size is negative",
@@ -264,8 +254,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchSize:   "-1",
 			},
-			wantErr:     true,
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize).Error(),
+			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize),
 		},
 		{
 			name: "batch size is too big",
@@ -276,8 +265,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchSize:   "1001",
 			},
-			wantErr:     true,
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize).Error(),
+			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize),
 		},
 		{
 			name: "batch delay with a wrong data type",
@@ -288,8 +276,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchDelay:  "test",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidTimeDurationTypeErr(models.ConfigBatchDelay).Error(),
+			expectedErr: validator.InvalidTimeDurationTypeErr(models.ConfigBatchDelay),
 		},
 		{
 			name: "batch delay is zero",
@@ -300,8 +287,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchDelay:  "0",
 			},
-			wantErr:     true,
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay).Error(),
+			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay),
 		},
 		{
 			name: "batch delay is less than the minimum",
@@ -312,8 +298,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchDelay:  "100ns",
 			},
-			wantErr:     true,
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay).Error(),
+			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay),
 		},
 		{
 			name: "batch delay is too big",
@@ -324,8 +309,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "test-topic",
 				models.ConfigBatchDelay:  "2s",
 			},
-			wantErr:     true,
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay).Error(),
+			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay),
 		},
 	}
 
@@ -333,14 +317,14 @@ func TestParseDestination(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseDestination(tt.in)
 			if err != nil {
-				if !tt.wantErr {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.wantErr)
+				if tt.expectedErr == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr, err.Error())
+				if err.Error() != tt.expectedErr.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
 
 					return
 				}

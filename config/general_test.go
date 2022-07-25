@@ -28,8 +28,7 @@ func TestParseGeneral(t *testing.T) {
 		name        string
 		in          map[string]string
 		want        General
-		wantErr     bool
-		expectedErr string
+		expectedErr error
 	}{
 		{
 			name: "valid config",
@@ -50,8 +49,7 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigPrivateKey).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigPrivateKey),
 		},
 		{
 			name: "client email is validator.Required",
@@ -59,8 +57,7 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigProjectID:  "test-pubsub",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigClientEmail).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigClientEmail),
 		},
 		{
 			name: "project id is validator.Required",
@@ -68,17 +65,15 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",
 			},
-			wantErr:     true,
-			expectedErr: validator.RequiredErr(models.ConfigProjectID).Error(),
+			expectedErr: validator.RequiredErr(models.ConfigProjectID),
 		},
 		{
 			name: "a couple fields are empty (a client email and a project id)",
 			in: map[string]string{
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 			},
-			wantErr: true,
 			expectedErr: multierr.Combine(validator.RequiredErr(models.ConfigClientEmail),
-				validator.RequiredErr(models.ConfigProjectID)).Error(),
+				validator.RequiredErr(models.ConfigProjectID)),
 		},
 		{
 			name: "invalid email",
@@ -87,8 +82,7 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigClientEmail: "test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidEmailErr(models.ConfigClientEmail).Error(),
+			expectedErr: validator.InvalidEmailErr(models.ConfigClientEmail),
 		},
 	}
 
@@ -96,14 +90,14 @@ func TestParseGeneral(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := parseGeneral(tt.in)
 			if err != nil {
-				if !tt.wantErr {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.wantErr)
+				if tt.expectedErr == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr, err.Error())
+				if err.Error() != tt.expectedErr.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
 
 					return
 				}
