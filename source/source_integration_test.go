@@ -15,10 +15,12 @@
 package source
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
+	"reflect"
 	"strconv"
 	"testing"
 	"time"
@@ -479,8 +481,11 @@ func cleanup(ctx context.Context, projectID, topicID, subscriptionID string, cre
 	return nil
 }
 
-func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct{}, error) {
-	const dataFmt = "{\"id\": %s}"
+func prepareData(messagesCount int, dstCfg map[string]string) (map[string]sdk.Record, error) {
+	const (
+		dataFmt     = "{\"id\": %s}"
+		metadataKey = "metadata"
+	)
 
 	dest := destination.New()
 
@@ -497,14 +502,19 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct
 		return nil, fmt.Errorf("open: %s", err.Error())
 	}
 
-	prepared := make(map[string]struct{}, messagesCount)
+	prepared := make(map[string]sdk.Record, messagesCount)
 
 	for i := 0; i < messagesCount; i++ {
 		data := fmt.Sprintf(dataFmt, strconv.Itoa(i))
 
-		err = dest.WriteAsync(ctx, sdk.Record{
+		r := sdk.Record{
+			Metadata: map[string]string{
+				metadataKey: uuid.New().String(),
+			},
 			Payload: sdk.RawData(data),
-		}, func(ackErr error) error {
+		}
+
+		err = dest.WriteAsync(ctx, r, func(ackErr error) error {
 			if ackErr != nil {
 				return fmt.Errorf("ack func: %s", ackErr.Error())
 			}
@@ -515,7 +525,7 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct
 			return nil, fmt.Errorf("write async: %s", err.Error())
 		}
 
-		prepared[data] = struct{}{}
+		prepared[data] = r
 	}
 
 	err = dest.Flush(ctx)
@@ -533,12 +543,22 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct
 	return prepared, nil
 }
 
-func compare(records []sdk.Record, prepared map[string]struct{}) error {
+func compare(records []sdk.Record, prepared map[string]sdk.Record) error {
 	for i := range records {
 		payload := string(records[i].Payload.Bytes())
 
-		if _, ok := prepared[payload]; !ok {
+		pr, ok := prepared[payload]
+		if !ok {
 			return fmt.Errorf("no data in the map by data: %s", payload)
+		}
+
+		if !reflect.DeepEqual(records[i].Metadata, pr.Metadata) {
+			return fmt.Errorf("expected metadata \"%+v\", got \"%+v\"", pr.Metadata, records[i].Metadata)
+		}
+
+		if !bytes.Equal(records[i].Payload.Bytes(), pr.Payload.Bytes()) {
+			return fmt.Errorf("expected payload \"%s\", got \"%s\"",
+				string(pr.Payload.Bytes()), string(records[i].Payload.Bytes()))
 		}
 	}
 
