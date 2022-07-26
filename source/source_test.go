@@ -16,12 +16,18 @@ package source
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source/mock"
+	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/golang/mock/gomock"
+	"github.com/matryer/is"
 )
 
 func TestSource_Configure(t *testing.T) {
@@ -116,4 +122,128 @@ func TestSource_Configure(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestSource_ReadSuccess(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+	ctx := context.Background()
+
+	st := make(sdk.StructuredData)
+	st["key"] = "value"
+
+	record := sdk.Record{
+		Position:  sdk.Position(`{"last_processed_element_value": 1}`),
+		Metadata:  nil,
+		CreatedAt: time.Time{},
+		Payload:   st,
+	}
+
+	sub := mock.NewMockSubscriber(ctrl)
+	sub.EXPECT().Next(ctx).Return(record, nil)
+
+	s := Source{
+		subscriber: sub,
+	}
+
+	r, err := s.Read(ctx)
+	is.NoErr(err)
+
+	is.Equal(r, record)
+}
+
+func TestSource_ReadFail(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+	ctx := context.Background()
+
+	sub := mock.NewMockSubscriber(ctrl)
+	sub.EXPECT().Next(ctx).Return(sdk.Record{}, errors.New("key is not exist"))
+
+	s := Source{
+		subscriber: sub,
+	}
+
+	_, err := s.Read(ctx)
+	is.Equal(err != nil, true)
+}
+
+func TestSource_AckSuccess(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+	ctx := context.Background()
+
+	sub := mock.NewMockSubscriber(ctrl)
+	sub.EXPECT().Ack(ctx).Return(nil)
+
+	s := Source{
+		subscriber: sub,
+	}
+
+	err := s.Ack(ctx, nil)
+	is.NoErr(err)
+}
+
+func TestSource_AckFail(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+	ctx := context.Background()
+
+	sub := mock.NewMockSubscriber(ctrl)
+	sub.EXPECT().Ack(ctx).Return(context.Canceled)
+
+	s := Source{
+		subscriber: sub,
+	}
+
+	err := s.Ack(ctx, nil)
+	is.Equal(err, context.Canceled)
+}
+
+func TestSource_TeardownSuccess(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+
+	sub := mock.NewMockSubscriber(ctrl)
+	sub.EXPECT().Stop().Return(nil)
+
+	s := Source{
+		subscriber: sub,
+	}
+
+	err := s.Teardown(context.Background())
+	is.NoErr(err)
+}
+
+func TestSource_TeardownFail(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+
+	sub := mock.NewMockSubscriber(ctrl)
+	sub.EXPECT().Stop().Return(errors.New("pubsub closing error"))
+
+	s := Source{
+		subscriber: sub,
+	}
+
+	err := s.Teardown(context.Background())
+	is.Equal(err != nil, true)
 }

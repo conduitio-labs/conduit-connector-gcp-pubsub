@@ -16,6 +16,7 @@ package destination
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -23,7 +24,10 @@ import (
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination/mock"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
+	"github.com/golang/mock/gomock"
+	"github.com/matryer/is"
 )
 
 func TestDestination_Configure(t *testing.T) {
@@ -116,4 +120,40 @@ func TestDestination_Configure(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDestination_TeardownSuccess(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+
+	pub := mock.NewMockPublisher(ctrl)
+	pub.EXPECT().Stop().Return(nil)
+
+	d := Destination{
+		publisher: pub,
+	}
+
+	err := d.Teardown(context.Background())
+	is.NoErr(err)
+}
+
+func TestDestination_TeardownFail(t *testing.T) {
+	t.Parallel()
+
+	is := is.New(t)
+
+	ctrl := gomock.NewController(t)
+
+	pub := mock.NewMockPublisher(ctrl)
+	pub.EXPECT().Stop().Return(errors.New("pubsub closing error"))
+
+	d := Destination{
+		publisher: pub,
+	}
+
+	err := d.Teardown(context.Background())
+	is.Equal(err != nil, true)
 }
