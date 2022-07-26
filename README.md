@@ -40,6 +40,7 @@ The user can get the authorization data from a JSON file by the following instru
 | `clientEmail`    | client email to auth in a client   | true     | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
 | `projectId`      | project id to auth in a client     | true     | conduit-pubsub                                                                 |
 | `subscriptionId` | subscription name to pull messages | true     | conduit-subscription                                                           |
+**Note**: the source connector supports subscriptions with **pull** delivery type only. 
 
 ### Destination
 A destination connector represents an **asynchronous** writes to the GCP Pub/Sub.
