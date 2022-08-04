@@ -2,6 +2,7 @@
 
 ### General
 The GCP Pub/Sub connector is one of [Conduit](https://github.com/ConduitIO/conduit) plugins. It provides both, a source and destination GCP Pub/Sub connector.
+The GCP [Pub/Sub Lite](https://cloud.google.com/pubsub/lite/docs) does not support by this connector.
 
 ### Prerequisites
 - [Go](https://go.dev/) 1.18
@@ -19,6 +20,22 @@ Under the hood, the connector uses [Google Cloud Client Libraries for Go](https:
 ### Source
 A source connector represents the receiver of the messages from the GCP Pub/Sub.
 
+#### How it works
+The system contains two queues in memory.
+
+The first queue contains records witch were returned by the `Read` method.
+Messages are continuously added to this queue as soon as they appear in the GCP Pub/Sub topic.
+
+The second queue exists to acknowledge records using the `Ack` method. 
+Messages are added to this queue immediately after a record is returned by the Read method.
+
+**CDC**: Messages that are in GCP Pub/Sub cannot be deleted or changed. 
+Consequently, all messages have no `action` key in the metadata.
+
+Messages can store own metadata as a key value data.
+All message metadata is passed to the record metadata.
+
+#### Methods
 `Configure` parses the configuration and validates them.
 
 `Open` initializes the GCP Pub/Sub client and calls the client's `Receive` method.
