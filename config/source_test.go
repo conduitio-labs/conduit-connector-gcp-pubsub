@@ -27,8 +27,7 @@ func TestParseSource(t *testing.T) {
 		name        string
 		in          map[string]string
 		want        Source
-		wantErr     bool
-		expectedErr string
+		expectedErr error
 	}{
 		{
 			name: "valid config",
@@ -55,8 +54,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "su",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
 			name: "subscription id is too big",
@@ -68,8 +66,7 @@ func TestParseSource(t *testing.T) {
 					"NCadTgrbUJKY6Lb6ARzyOY3bI3W6YjadDLTl47DIqA7zjYYQNIud9PHXgA0v3NVlk2AVLaziUwylawemiUJOee68ULPg" +
 					"GyBgoCIMAB7ukAgjN0fhGPeYART2yojioOp3w9mBPdklk7OY8rJQFCy5ii70byyHFqT3JG00kJTPzdPPdt53",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
 			name: "subscription id does not start with a letter",
@@ -79,8 +76,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "1-test-subscription",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
 			name: "subscription id has unsupported characters",
@@ -90,8 +86,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "test-sub*",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
 			name: "subscription id starts with goog",
@@ -101,8 +96,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "goog-test-subscription",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
 			name: "subscription id starts with Goog",
@@ -112,8 +106,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "Goog-test-subscription",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
 			name: "subscription id starts with gooG",
@@ -123,8 +116,7 @@ func TestParseSource(t *testing.T) {
 				models.ConfigProjectID:      "test-pubsub",
 				models.ConfigSubscriptionID: "gooG-test-subscription",
 			},
-			wantErr:     true,
-			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID).Error(),
+			expectedErr: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 	}
 
@@ -132,14 +124,14 @@ func TestParseSource(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := ParseSource(tt.in)
 			if err != nil {
-				if !tt.wantErr {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.wantErr)
+				if tt.expectedErr == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr, err.Error())
+				if err.Error() != tt.expectedErr.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
 
 					return
 				}

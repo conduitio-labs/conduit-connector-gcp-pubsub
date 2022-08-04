@@ -2,6 +2,7 @@
 
 ### General
 The GCP Pub/Sub connector is one of [Conduit](https://github.com/ConduitIO/conduit) plugins. It provides both, a source and destination GCP Pub/Sub connector.
+The GCP [Pub/Sub Lite](https://cloud.google.com/pubsub/lite/docs) does not support by this connector.
 
 ### Prerequisites
 - [Go](https://go.dev/) 1.18
@@ -19,6 +20,22 @@ Under the hood, the connector uses [Google Cloud Client Libraries for Go](https:
 ### Source
 A source connector represents the receiver of the messages from the GCP Pub/Sub.
 
+#### How it works
+The system contains two queues in memory.
+
+The first queue contains records witch were returned by the `Read` method.
+Messages are continuously added to this queue as soon as they appear in the GCP Pub/Sub topic.
+
+The second queue exists to acknowledge records using the `Ack` method. 
+Messages are added to this queue immediately after a record is returned by the Read method.
+
+**CDC**: Messages that are in GCP Pub/Sub cannot be deleted or changed. 
+Consequently, all messages have no `action` key in the metadata.
+
+Messages can store own metadata as a key value data.
+All message metadata is passed to the record metadata.
+
+#### Methods
 `Configure` parses the configuration and validates them.
 
 `Open` initializes the GCP Pub/Sub client and calls the client's `Receive` method.
@@ -40,6 +57,7 @@ The user can get the authorization data from a JSON file by the following instru
 | `clientEmail`    | client email to auth in a client   | true     | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
 | `projectId`      | project id to auth in a client     | true     | conduit-pubsub                                                                 |
 | `subscriptionId` | subscription name to pull messages | true     | conduit-subscription                                                           |
+**Note**: the source connector supports subscriptions with **pull** delivery type only. 
 
 ### Destination
 A destination connector represents an **asynchronous** writes to the GCP Pub/Sub.
@@ -67,6 +85,9 @@ The user can get the authorization data from a JSON file by the following instru
 | `batchDelay`  | the time delay, after which the batch of messages will be published                            | false    | 100ms                                                                          |
 
 ### Known limitations
-The maximum message size in a publish request is **10Mb**.
-
-[Pub/Sub quotas and limits](https://cloud.google.com/pubsub/quotas)
+| resource                      | limitation     |
+|-------------------------------|----------------|
+| Message size (the data field) | **10MB**       | 
+| Attributes per message        | **100**        |
+| Attribute key size            | **256 bytes**  |
+| Attribute value size          | **1024 bytes** |

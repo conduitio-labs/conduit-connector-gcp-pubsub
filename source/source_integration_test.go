@@ -15,11 +15,12 @@
 package source
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
+	"reflect"
 	"testing"
 	"time"
 
@@ -192,23 +193,77 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		records := make([]sdk.Record, 0, messagesCount)
 
-		for {
-			record, err := readWithBackoffRetry(ctx, src)
-			if err != nil {
-				t.Errorf("read: %s", err.Error())
-			}
-
-			err = src.Ack(ctx, nil)
-			if err != nil {
-				t.Errorf("ack: %s", err.Error())
-			}
-
-			records = append(records, record)
-
-			if len(records) == messagesCount {
-				break
-			}
+		record, err := readWithBackoffRetry(ctx, src)
+		if err != nil {
+			t.Errorf("read: %s", err.Error())
 		}
+
+		err = src.Ack(ctx, nil)
+		if err != nil {
+			t.Errorf("ack: %s", err.Error())
+		}
+
+		records = append(records, record)
+
+		cancel()
+
+		err = src.Teardown(context.Background())
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		err = compare(records, prepared)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+
+	t.Run("publish and receive 1 message without acknowledgment", func(t *testing.T) {
+		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
+
+		const messagesCount = 1
+
+		src := New()
+
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(ctx, srcCfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(ctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		prepared, err := prepareData(messagesCount, dstCfg)
+		if err != nil {
+			t.Errorf("generate and publish: %s", err.Error())
+		}
+
+		records := make([]sdk.Record, 0, messagesCount)
+
+		_, err = readWithBackoffRetry(ctx, src)
+		if err != nil {
+			t.Errorf("read: %s", err.Error())
+		}
+
+		// there should be an acknowledgement of the message, but there isn't,
+		// so trying to get the same message again (it will be received in a while)
+
+		record, err := readWithBackoffRetry(ctx, src)
+		if err != nil {
+			t.Errorf("read: %s", err.Error())
+		}
+
+		err = src.Ack(ctx, nil)
+		if err != nil {
+			t.Errorf("ack: %s", err.Error())
+		}
+
+		records = append(records, record)
 
 		cancel()
 
@@ -479,8 +534,12 @@ func cleanup(ctx context.Context, projectID, topicID, subscriptionID string, cre
 	return nil
 }
 
-func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct{}, error) {
-	const dataFmt = "{\"id\": %s}"
+func prepareData(messagesCount int, dstCfg map[string]string) (map[string]sdk.Record, error) {
+	const (
+		dataFmt          = "{\"id\": %d}"
+		metadataKey      = "metadata"
+		metadataValueFmt = "metadata_%d"
+	)
 
 	dest := destination.New()
 
@@ -497,14 +556,19 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct
 		return nil, fmt.Errorf("open: %s", err.Error())
 	}
 
-	prepared := make(map[string]struct{}, messagesCount)
+	prepared := make(map[string]sdk.Record, messagesCount)
 
 	for i := 0; i < messagesCount; i++ {
-		data := fmt.Sprintf(dataFmt, strconv.Itoa(i))
+		data := fmt.Sprintf(dataFmt, i)
 
-		err = dest.WriteAsync(ctx, sdk.Record{
+		r := sdk.Record{
+			Metadata: map[string]string{
+				metadataKey: fmt.Sprintf(metadataValueFmt, i),
+			},
 			Payload: sdk.RawData(data),
-		}, func(ackErr error) error {
+		}
+
+		err = dest.WriteAsync(ctx, r, func(ackErr error) error {
 			if ackErr != nil {
 				return fmt.Errorf("ack func: %s", ackErr.Error())
 			}
@@ -515,7 +579,7 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct
 			return nil, fmt.Errorf("write async: %s", err.Error())
 		}
 
-		prepared[data] = struct{}{}
+		prepared[data] = r
 	}
 
 	err = dest.Flush(ctx)
@@ -533,12 +597,22 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]struct
 	return prepared, nil
 }
 
-func compare(records []sdk.Record, prepared map[string]struct{}) error {
+func compare(records []sdk.Record, prepared map[string]sdk.Record) error {
 	for i := range records {
 		payload := string(records[i].Payload.Bytes())
 
-		if _, ok := prepared[payload]; !ok {
+		pr, ok := prepared[payload]
+		if !ok {
 			return fmt.Errorf("no data in the map by data: %s", payload)
+		}
+
+		if !reflect.DeepEqual(records[i].Metadata, pr.Metadata) {
+			return fmt.Errorf("expected metadata \"%+v\", got \"%+v\"", pr.Metadata, records[i].Metadata)
+		}
+
+		if !bytes.Equal(records[i].Payload.Bytes(), pr.Payload.Bytes()) {
+			return fmt.Errorf("expected payload \"%s\", got \"%s\"",
+				string(pr.Payload.Bytes()), string(records[i].Payload.Bytes()))
 		}
 	}
 
