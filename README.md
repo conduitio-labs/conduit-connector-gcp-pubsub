@@ -57,7 +57,10 @@ The user can get the authorization data from a JSON file by the following instru
 | `clientEmail`    | client email to auth in a client   | true     | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
 | `projectId`      | project id to auth in a client     | true     | conduit-pubsub                                                                 |
 | `subscriptionId` | subscription name to pull messages | true     | conduit-subscription                                                           |
-**Note**: the source connector supports subscriptions with **pull** delivery type only. 
+**Notes**:
+1. The source connector supports subscriptions with **pull** delivery type only.
+2. Each subscription receives only one time a message from the topic. 
+So if you need to get one message sent to a topic twice (or more) - create two (or more) subscriptions and connectors to them.
 
 ### Destination
 A destination connector represents an **asynchronous** writes to the GCP Pub/Sub.
