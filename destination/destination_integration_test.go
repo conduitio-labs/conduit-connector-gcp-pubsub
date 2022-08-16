@@ -246,16 +246,22 @@ func prepareConfig(t *testing.T) map[string]string {
 	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
 	if privateKey == "" {
 		t.Skip("GCP_PUBSUB_PRIVATE_KEY env var must be set")
+
+		return nil
 	}
 
 	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
 	if clientEmail == "" {
 		t.Skip("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
+
+		return nil
 	}
 
 	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
 	if projectID == "" {
 		t.Skip("GCP_PUBSUB_PROJECT_ID env var must be set")
+
+		return nil
 	}
 
 	return map[string]string{
@@ -272,6 +278,8 @@ func prepareConfigLite(t *testing.T) map[string]string {
 	location := os.Getenv("GCP_PUBSUB_LOCATION")
 	if location == "" {
 		t.Skip("GCP_PUBSUB_LOCATION env var must be set")
+
+		return nil
 	}
 
 	cfg := prepareConfig(t)
