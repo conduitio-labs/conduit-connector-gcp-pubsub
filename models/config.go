@@ -35,6 +35,9 @@ const (
 
 	// ConfigBatchDelay is the configuration name of the batch delay for the publisher client.
 	ConfigBatchDelay = "batchDelay"
+
+	// ConfigLocation is the configuration name of the Cloud Region or Zone where the topic resides.
+	ConfigLocation = "location"
 )
 
 // ConfigKeyName returns a configuration key name by struct field.
@@ -43,6 +46,7 @@ func ConfigKeyName(fieldName string) string {
 		"PrivateKey":     ConfigPrivateKey,
 		"ClientEmail":    ConfigClientEmail,
 		"ProjectID":      ConfigProjectID,
+		"Location":       ConfigLocation,
 		"SubscriptionID": ConfigSubscriptionID,
 		"TopicID":        ConfigTopicID,
 		"BatchSize":      ConfigBatchSize,

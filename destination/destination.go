@@ -17,7 +17,7 @@ package destination
 import (
 	"context"
 
-	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/client"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -53,13 +53,20 @@ func (d *Destination) Configure(_ context.Context, cfgRaw map[string]string) err
 }
 
 // Open initializes a publisher client.
-func (d *Destination) Open(ctx context.Context) error {
-	publisher, err := client.NewPublisher(ctx, d.cfg)
+func (d *Destination) Open(ctx context.Context) (err error) {
+	if d.cfg.Location == "" {
+		d.publisher, err = clients.NewPublisher(ctx, d.cfg)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	d.publisher, err = clients.NewPublisherLite(ctx, d.cfg)
 	if err != nil {
 		return err
 	}
-
-	d.publisher = publisher
 
 	return nil
 }

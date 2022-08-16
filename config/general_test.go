@@ -41,10 +41,26 @@ func TestParseGeneral(t *testing.T) {
 				PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				ClientEmail: "test@test-pubsub.com",
 				ProjectID:   "test-pubsub",
+				Location:    "",
 			},
 		},
 		{
-			name: "private key is validator.Required",
+			name: "location is not empty",
+			in: map[string]string{
+				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				models.ConfigClientEmail: "test@test-pubsub.com",
+				models.ConfigProjectID:   "test-pubsub",
+				models.ConfigLocation:    "europe-central2-a",
+			},
+			want: General{
+				PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
+				ClientEmail: "test@test-pubsub.com",
+				ProjectID:   "test-pubsub",
+				Location:    "europe-central2-a",
+			},
+		},
+		{
+			name: "private key is required",
 			in: map[string]string{
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
@@ -52,7 +68,7 @@ func TestParseGeneral(t *testing.T) {
 			expectedErr: validator.RequiredErr(models.ConfigPrivateKey),
 		},
 		{
-			name: "client email is validator.Required",
+			name: "client email is required",
 			in: map[string]string{
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigProjectID:  "test-pubsub",
@@ -60,7 +76,7 @@ func TestParseGeneral(t *testing.T) {
 			expectedErr: validator.RequiredErr(models.ConfigClientEmail),
 		},
 		{
-			name: "project id is validator.Required",
+			name: "project id is required",
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",

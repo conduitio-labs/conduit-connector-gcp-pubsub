@@ -4,11 +4,12 @@ go 1.18
 
 require (
 	cloud.google.com/go/pubsub v1.22.2
+	cloud.google.com/go/pubsublite v1.3.2
 	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220607154716-0655cdd93a58
 	github.com/gammazero/deque v0.2.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/golang/mock v1.6.0
-	github.com/google/uuid v1.1.2
+	github.com/google/uuid v1.3.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/matryer/is v1.4.0
 	go.uber.org/goleak v1.1.12
