@@ -36,7 +36,7 @@ type PublisherLite struct {
 }
 
 // NewPublisherLite initializes a new publisher client of GCP Pub/Sub Lite.
-func NewPublisherLite(ctx context.Context, cfg config.Destination) (*PublisherLite, error) {
+func NewPublisherLite(ctx context.Context, cfg config.Destination, errAckCh chan error) (*PublisherLite, error) {
 	credential, err := cfg.Marshal()
 	if err != nil {
 		return nil, err
@@ -71,7 +71,7 @@ func NewPublisherLite(ctx context.Context, cfg config.Destination) (*PublisherLi
 
 				err = res.ackFunc(err)
 				if err != nil {
-					sdk.Logger(ctx).Err(err).Msg("failed to call ackFunc")
+					errAckCh <- fmt.Errorf("failed to call ackFunc: %w", err)
 				}
 			}
 		}

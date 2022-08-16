@@ -30,6 +30,8 @@ type Publisher struct {
 	topic     *pubsub.Topic
 	resultsCh chan *result
 	ctxCancel context.CancelFunc
+
+	ErrAckCh chan error
 }
 
 type result struct {
@@ -38,7 +40,7 @@ type result struct {
 }
 
 // NewPublisher initializes a new publisher client.
-func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, error) {
+func NewPublisher(ctx context.Context, cfg config.Destination, errAckCh chan error) (*Publisher, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
 		return nil, fmt.Errorf("new pubsub client: %w", err)
@@ -63,11 +65,11 @@ func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, erro
 				return
 			case res := <-publisher.resultsCh:
 				// blocks until the Publish call completes
-				_, err := res.publishResult.Get(ctx)
+				_, err = res.publishResult.Get(ctx)
 
 				err = res.ackFunc(err)
 				if err != nil {
-					sdk.Logger(ctx).Err(err).Msg("failed to call ackFunc")
+					errAckCh <- fmt.Errorf("failed to call ackFunc: %w", err)
 				}
 			}
 		}
