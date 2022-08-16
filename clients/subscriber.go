@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package client
+package clients
 
 import (
 	"context"
@@ -71,6 +71,8 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 				sub.msgDeque.PushBack(m)
 			},
 		); err != nil {
+			close(sub.canceledCh)
+
 			sub.errorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
@@ -102,7 +104,7 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 
 		s.ackDeque.PushBack(msg)
 
-		position, err := s.getPosition()
+		position, err := getBinaryUUID()
 		if err != nil {
 			return sdk.Record{}, fmt.Errorf("get position: %w", err)
 		}
@@ -157,8 +159,9 @@ func (s *Subscriber) Stop() error {
 	return s.pubSub.close()
 }
 
-// getPosition returns the current iterator position.
-func (*Subscriber) getPosition() (sdk.Position, error) {
+// getBinaryUUID creates a new random UUID and
+// returns a binary form of UUID value or an error.
+func getBinaryUUID() (sdk.Position, error) {
 	uuidBytes, err := uuid.New().MarshalBinary()
 	if err != nil {
 		return nil, fmt.Errorf("marshal uuid: %w", err)

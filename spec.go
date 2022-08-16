@@ -52,6 +52,11 @@ func Specification() sdk.Specification {
 				Required:    true,
 				Description: "GCP Pub/Sub subscription id key.",
 			},
+			models.ConfigLocation: {
+				Default:     "",
+				Required:    false,
+				Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
+			},
 		},
 		DestinationParams: map[string]sdk.Parameter{
 			models.ConfigPrivateKey: {
@@ -83,6 +88,11 @@ func Specification() sdk.Specification {
 				Default:     pubsub.DefaultPublishSettings.DelayThreshold.String(),
 				Required:    false,
 				Description: "GCP Pub/Sub batch delay key.",
+			},
+			models.ConfigLocation: {
+				Default:     "",
+				Required:    false,
+				Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
 			},
 		},
 	}

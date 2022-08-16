@@ -17,7 +17,7 @@ package destination
 import (
 	"context"
 
-	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/client"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -33,11 +33,14 @@ type Destination struct {
 	sdk.UnimplementedDestination
 	cfg       config.Destination
 	publisher Publisher
+	errAckCh  chan error
 }
 
 // New initialises a new Destination.
 func New() sdk.Destination {
-	return &Destination{}
+	return &Destination{
+		errAckCh: make(chan error),
+	}
 }
 
 // Configure parses and stores configurations, returns an error in case of invalid configuration.
@@ -53,20 +56,32 @@ func (d *Destination) Configure(_ context.Context, cfgRaw map[string]string) err
 }
 
 // Open initializes a publisher client.
-func (d *Destination) Open(ctx context.Context) error {
-	publisher, err := client.NewPublisher(ctx, d.cfg)
+func (d *Destination) Open(ctx context.Context) (err error) {
+	if d.cfg.Location == "" {
+		d.publisher, err = clients.NewPublisher(ctx, d.cfg, d.errAckCh)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	d.publisher, err = clients.NewPublisherLite(ctx, d.cfg, d.errAckCh)
 	if err != nil {
 		return err
 	}
-
-	d.publisher = publisher
 
 	return nil
 }
 
 // WriteAsync writes a record into a Destination.
 func (d *Destination) WriteAsync(ctx context.Context, record sdk.Record, ackFunc sdk.AckFunc) error {
-	d.publisher.Publish(ctx, record, ackFunc)
+	select {
+	case err := <-d.errAckCh:
+		return err
+	default:
+		d.publisher.Publish(ctx, record, ackFunc)
+	}
 
 	return nil
 }
@@ -83,7 +98,12 @@ func (d *Destination) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
 	if d.publisher != nil {
-		return d.publisher.Stop()
+		select {
+		case err := <-d.errAckCh:
+			return err
+		default:
+			return d.publisher.Stop()
+		}
 	}
 
 	return nil

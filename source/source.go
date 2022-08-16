@@ -17,7 +17,7 @@ package source
 import (
 	"context"
 
-	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/client"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
@@ -54,13 +54,20 @@ func (s *Source) Configure(_ context.Context, cfgRaw map[string]string) error {
 }
 
 // Open initializes a subscriber client.
-func (s *Source) Open(ctx context.Context, _ sdk.Position) error {
-	subscriber, err := client.NewSubscriber(ctx, s.cfg)
+func (s *Source) Open(ctx context.Context, _ sdk.Position) (err error) {
+	if s.cfg.Location == "" {
+		s.subscriber, err = clients.NewSubscriber(ctx, s.cfg)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	}
+
+	s.subscriber, err = clients.NewSubscriberLite(ctx, s.cfg)
 	if err != nil {
 		return err
 	}
-
-	s.subscriber = subscriber
 
 	return nil
 }

@@ -32,6 +32,9 @@ type General struct {
 
 	// ProjectID is the configuration of the project id for the GCP Pub/Sub client.
 	ProjectID string `json:"project_id" validate:"required"`
+
+	// Location is the configuration of the location (for GCP Pub/Sub Lite only).
+	Location string `json:"location"`
 }
 
 func parseGeneral(cfg map[string]string) (General, error) {
@@ -39,6 +42,7 @@ func parseGeneral(cfg map[string]string) (General, error) {
 		PrivateKey:  cfg[models.ConfigPrivateKey],
 		ClientEmail: cfg[models.ConfigClientEmail],
 		ProjectID:   cfg[models.ConfigProjectID],
+		Location:    cfg[models.ConfigLocation],
 	}
 
 	err := validator.Validate(config)

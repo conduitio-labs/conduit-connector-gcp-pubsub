@@ -25,105 +25,64 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
+	"cloud.google.com/go/pubsublite"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
-	"go.uber.org/goleak"
 	"google.golang.org/api/option"
 )
 
+const (
+	payload = "Hello, 世界"
+
+	topicFmt        = "source-test-topic-%d"
+	subscriptionFmt = "source-test-subscription-%d"
+
+	topicPathFmt        = "projects/%s/locations/%s/topics/%s"
+	subscriptionPathFmt = "projects/%s/locations/%s/subscriptions/%s"
+	reservationPathFmt  = "projects/%s/locations/%s/reservations/reservation-%d"
+)
+
 func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
-	const (
-		topicFmt = "acceptance-test-topic-%s"
-		subFmt   = "acceptance-test-subscription-%s"
-
-		ignoredTopFunction = "go.opencensus.io/stats/view.(*worker).start"
-	)
-
 	var (
-		ctx            = context.Background()
-		topicID        = fmt.Sprintf(topicFmt, uuid.New().String())
-		subscriptionID = fmt.Sprintf(subFmt, uuid.New().String())
+		ctx = context.Background()
+		cfg = prepareConfig(t)
 	)
-
-	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
-	if privateKey == "" {
-		t.Skip("GCP_PUBSUB_PRIVATE_KEY env var must be set")
-	}
-
-	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
-	if clientEmail == "" {
-		t.Skip("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
-	}
-
-	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
-	if projectID == "" {
-		t.Skip("GCP_PUBSUB_PROJECT_ID env var must be set")
-	}
-
-	cfg := map[string]string{
-		models.ConfigPrivateKey:  privateKey,
-		models.ConfigClientEmail: clientEmail,
-		models.ConfigProjectID:   projectID,
-	}
-
-	srcCfg := map[string]string{
-		models.ConfigPrivateKey:     privateKey,
-		models.ConfigClientEmail:    clientEmail,
-		models.ConfigProjectID:      projectID,
-		models.ConfigSubscriptionID: subscriptionID,
-	}
-
-	dstCfg := map[string]string{
-		models.ConfigPrivateKey:  privateKey,
-		models.ConfigClientEmail: clientEmail,
-		models.ConfigProjectID:   projectID,
-		models.ConfigTopicID:     topicID,
-		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
-		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
-	}
 
 	credential, err := getCredential(cfg)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err = createTopic(ctx, projectID, topicID, credential); err != nil {
-		t.Errorf("create topic: %s", err.Error())
+	if err = prepareResources(ctx, cfg, credential); err != nil {
+		t.Errorf("prepare resource: %s", err.Error())
 	}
 
-	if err = createSubscription(ctx, projectID, topicID, subscriptionID, credential); err != nil {
-		t.Errorf("create subscription: %s", err.Error())
-	}
-
-	defer func() {
-		if err = cleanup(ctx, projectID, topicID, subscriptionID, credential); err != nil {
+	t.Cleanup(func() {
+		if err = cleanupResources(ctx, cfg, credential); err != nil {
 			t.Errorf("failed to cleanup resources: %s", err.Error())
 		}
-	}()
+	})
 
 	t.Run("read empty", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
 		src := New()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, srcCfg)
+		err = src.Configure(cctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		record, err := src.Read(ctx)
+		record, err := src.Read(cctx)
 		if err != sdk.ErrBackoffRetry {
 			t.Errorf("read error: got = %v, want = %v", err, sdk.ErrBackoffRetry)
 		}
@@ -132,82 +91,71 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Error("record should be empty")
 		}
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("configure, open and teardown", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
 		src := New()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, srcCfg)
+		err = src.Configure(cctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("publish and receive 1 message", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
 		const messagesCount = 1
 
 		src := New()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, srcCfg)
+		err = src.Configure(cctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, dstCfg)
+		prepared, err := prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
 
-		records := make([]sdk.Record, 0, messagesCount)
-
-		record, err := readWithBackoffRetry(ctx, src)
+		record, err := readWithBackoffRetry(cctx, src)
 		if err != nil {
 			t.Errorf("read: %s", err.Error())
 		}
 
-		err = src.Ack(ctx, nil)
+		err = src.Ack(cctx, nil)
 		if err != nil {
 			t.Errorf("ack: %s", err.Error())
 		}
 
+		records := make([]sdk.Record, 0, messagesCount)
 		records = append(records, record)
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -219,33 +167,29 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("publish and receive 1 message without acknowledgment", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
 		const messagesCount = 1
 
 		src := New()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, srcCfg)
+		err = src.Configure(cctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, dstCfg)
+		prepared, err := prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
 
-		records := make([]sdk.Record, 0, messagesCount)
-
-		_, err = readWithBackoffRetry(ctx, src)
+		_, err = readWithBackoffRetry(cctx, src)
 		if err != nil {
 			t.Errorf("read: %s", err.Error())
 		}
@@ -253,21 +197,20 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		// there should be an acknowledgement of the message, but there isn't,
 		// so trying to get the same message again (it will be received in a while)
 
-		record, err := readWithBackoffRetry(ctx, src)
+		record, err := readWithBackoffRetry(cctx, src)
 		if err != nil {
 			t.Errorf("read: %s", err.Error())
 		}
 
-		err = src.Ack(ctx, nil)
+		err = src.Ack(cctx, nil)
 		if err != nil {
 			t.Errorf("ack: %s", err.Error())
 		}
 
+		records := make([]sdk.Record, 0, messagesCount)
 		records = append(records, record)
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -279,8 +222,6 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("publish and receive 30 messages in a row with starts and stops", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
 		const (
 			messagesCount = 30
 
@@ -290,20 +231,20 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 
 		src := New()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, srcCfg)
+		err = src.Configure(cctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, dstCfg)
+		prepared, err := prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -311,12 +252,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for len(records) < firstStopMessagesCount {
-			record, err := readWithBackoffRetry(ctx, src)
+			record, err := readWithBackoffRetry(cctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(ctx, nil)
+			err = src.Ack(cctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -324,28 +265,26 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		ctx, cancel = context.WithCancel(context.Background())
+		cctx, cancel = context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
 		for len(records) < secondStopMessagesCount {
-			record, err := readWithBackoffRetry(ctx, src)
+			record, err := readWithBackoffRetry(cctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(ctx, nil)
+			err = src.Ack(cctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -353,17 +292,15 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		ctx, cancel = context.WithCancel(context.Background())
+		cctx, cancel = context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
@@ -374,7 +311,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(ctx, nil)
+			err = src.Ack(cctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -382,9 +319,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		cancel()
-
-		err = src.Teardown(context.Background())
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -396,26 +331,24 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	})
 
 	t.Run("publish 2500 messages in a row", func(t *testing.T) {
-		defer goleak.VerifyNone(t, goleak.IgnoreTopFunction(ignoredTopFunction))
-
 		const messagesCount = 2500
 
 		src := New()
 
-		ctx, cancel := context.WithCancel(context.Background())
+		cctx, cancel := context.WithCancel(context.Background())
 		defer cancel()
 
-		err = src.Configure(ctx, srcCfg)
+		err = src.Configure(cctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(ctx, nil)
+		err = src.Open(cctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, dstCfg)
+		prepared, err := prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -423,12 +356,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for len(records) < messagesCount {
-			record, err := readWithBackoffRetry(ctx, src)
+			record, err := readWithBackoffRetry(cctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(ctx, nil)
+			err = src.Ack(cctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -436,9 +369,360 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		cancel()
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
 
-		err = src.Teardown(context.Background())
+		err = compare(records, prepared)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+}
+
+func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
+	var (
+		ctx = context.Background()
+		cfg = prepareConfigLite(t)
+
+		err error
+	)
+
+	credential, err := getCredential(cfg)
+	if err != nil {
+		t.Error(err)
+	}
+
+	reservation := fmt.Sprintf(reservationPathFmt,
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().Unix())
+
+	if err = prepareResourcesLite(ctx, cfg, reservation, credential); err != nil {
+		t.Errorf("prepare resource: %s", err.Error())
+	}
+
+	t.Cleanup(func() {
+		if err = cleanupResourcesLite(ctx, cfg, reservation, credential); err != nil {
+			t.Errorf("failed to cleanup resources: %s", err.Error())
+		}
+	})
+
+	t.Run("read empty", func(t *testing.T) {
+		src := New()
+
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(cctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		record, err := src.Read(cctx)
+		if err != sdk.ErrBackoffRetry {
+			t.Errorf("read error: got = %v, want = %v", err, sdk.ErrBackoffRetry)
+		}
+
+		if record.Key != nil {
+			t.Error("record should be empty")
+		}
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+	})
+
+	t.Run("configure, open and teardown", func(t *testing.T) {
+		src := New()
+
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(cctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+	})
+
+	t.Run("publish and receive 1 message", func(t *testing.T) {
+		const messagesCount = 1
+
+		src := New()
+
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(cctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		prepared, err := prepareData(messagesCount, cfg)
+		if err != nil {
+			t.Errorf("generate and publish: %s", err.Error())
+		}
+
+		record, err := readWithBackoffRetry(cctx, src)
+		if err != nil {
+			t.Errorf("read: %s", err.Error())
+		}
+
+		err = src.Ack(cctx, nil)
+		if err != nil {
+			t.Errorf("ack: %s", err.Error())
+		}
+
+		records := make([]sdk.Record, 0, messagesCount)
+		records = append(records, record)
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		err = compare(records, prepared)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+
+	t.Run("publish and receive 1 message without acknowledgment", func(t *testing.T) {
+		const messagesCount = 1
+
+		src := New()
+
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(cctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		prepared, err := prepareData(messagesCount, cfg)
+		if err != nil {
+			t.Errorf("generate and publish: %s", err.Error())
+		}
+
+		_, err = readWithBackoffRetry(cctx, src)
+		if err != nil {
+			t.Errorf("read: %s", err.Error())
+		}
+
+		// There should be an acknowledgement of the message, but there isn't,
+		// so trying to reconnect and receive this message again.
+		// Lite subscriptions don't have an acknowledgment deadline and
+		// the Pub/Sub Lite service doesn't redeliver unacknowledged messages over an open streaming connection.
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		record, err := readWithBackoffRetry(cctx, src)
+		if err != nil {
+			t.Errorf("read: %s", err.Error())
+		}
+
+		err = src.Ack(cctx, nil)
+		if err != nil {
+			t.Errorf("ack: %s", err.Error())
+		}
+
+		records := make([]sdk.Record, 0, messagesCount)
+		records = append(records, record)
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		err = compare(records, prepared)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+
+	t.Run("publish and receive 30 messages in a row with starts and stops", func(t *testing.T) {
+		const (
+			messagesCount = 30
+
+			firstStopMessagesCount  = 10
+			secondStopMessagesCount = 17
+		)
+
+		src := New()
+
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(cctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		prepared, err := prepareData(messagesCount, cfg)
+		if err != nil {
+			t.Errorf("generate and publish: %s", err.Error())
+		}
+
+		records := make([]sdk.Record, 0, messagesCount)
+
+		for len(records) < firstStopMessagesCount {
+			record, err := readWithBackoffRetry(cctx, src)
+			if err != nil {
+				t.Errorf("read: %s", err.Error())
+			}
+
+			err = src.Ack(cctx, nil)
+			if err != nil {
+				t.Errorf("ack: %s", err.Error())
+			}
+
+			records = append(records, record)
+		}
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		cctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		for len(records) < secondStopMessagesCount {
+			record, err := readWithBackoffRetry(cctx, src)
+			if err != nil {
+				t.Errorf("read: %s", err.Error())
+			}
+
+			err = src.Ack(cctx, nil)
+			if err != nil {
+				t.Errorf("ack: %s", err.Error())
+			}
+
+			records = append(records, record)
+		}
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		cctx, cancel = context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		for len(records) < messagesCount {
+			record, err := readWithBackoffRetry(ctx, src)
+			if err != nil {
+				t.Errorf("read: %s", err.Error())
+			}
+
+			err = src.Ack(cctx, nil)
+			if err != nil {
+				t.Errorf("ack: %s", err.Error())
+			}
+
+			records = append(records, record)
+		}
+
+		err = src.Teardown(ctx)
+		if err != nil {
+			t.Errorf("teardown: %s", err.Error())
+		}
+
+		err = compare(records, prepared)
+		if err != nil {
+			t.Errorf(err.Error())
+		}
+	})
+
+	t.Run("publish 2500 messages in a row", func(t *testing.T) {
+		const messagesCount = 2500
+
+		src := New()
+
+		cctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+
+		err = src.Configure(cctx, cfg)
+		if err != nil {
+			t.Errorf("configure: %s", err.Error())
+		}
+
+		err = src.Open(cctx, nil)
+		if err != nil {
+			t.Errorf("open: %s", err.Error())
+		}
+
+		prepared, err := prepareData(messagesCount, cfg)
+		if err != nil {
+			t.Errorf("generate and publish: %s", err.Error())
+		}
+
+		records := make([]sdk.Record, 0, messagesCount)
+
+		for len(records) < messagesCount {
+			record, err := readWithBackoffRetry(cctx, src)
+			if err != nil {
+				t.Errorf("read: %s", err.Error())
+			}
+
+			err = src.Ack(cctx, nil)
+			if err != nil {
+				t.Errorf("ack: %s", err.Error())
+			}
+
+			records = append(records, record)
+		}
+
+		err = src.Teardown(ctx)
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -473,6 +757,53 @@ func readWithBackoffRetry(ctx context.Context, src sdk.Source) (sdk.Record, erro
 	}
 }
 
+func prepareConfig(t *testing.T) map[string]string {
+	privateKey := os.Getenv("GCP_PUBSUB_PRIVATE_KEY")
+	if privateKey == "" {
+		t.Skip("GCP_PUBSUB_PRIVATE_KEY env var must be set")
+
+		return nil
+	}
+
+	clientEmail := os.Getenv("GCP_PUBSUB_CLIENT_EMAIL")
+	if clientEmail == "" {
+		t.Skip("GCP_PUBSUB_CLIENT_EMAIL env var must be set")
+
+		return nil
+	}
+
+	projectID := os.Getenv("GCP_PUBSUB_PROJECT_ID")
+	if projectID == "" {
+		t.Skip("GCP_PUBSUB_PROJECT_ID env var must be set")
+
+		return nil
+	}
+
+	return map[string]string{
+		models.ConfigPrivateKey:     privateKey,
+		models.ConfigClientEmail:    clientEmail,
+		models.ConfigProjectID:      projectID,
+		models.ConfigTopicID:        fmt.Sprintf(topicFmt, time.Now().Unix()),
+		models.ConfigBatchSize:      os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
+		models.ConfigBatchDelay:     os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
+		models.ConfigSubscriptionID: fmt.Sprintf(subscriptionFmt, time.Now().Unix()),
+	}
+}
+
+func prepareConfigLite(t *testing.T) map[string]string {
+	location := os.Getenv("GCP_PUBSUB_LOCATION")
+	if location == "" {
+		t.Skip("GCP_PUBSUB_LOCATION env var must be set")
+
+		return nil
+	}
+
+	cfg := prepareConfig(t)
+	cfg[models.ConfigLocation] = location
+
+	return cfg
+}
+
 func getCredential(src map[string]string) ([]byte, error) {
 	return config.General{
 		PrivateKey:  src[models.ConfigPrivateKey],
@@ -481,33 +812,21 @@ func getCredential(src map[string]string) ([]byte, error) {
 	}.Marshal()
 }
 
-func createTopic(ctx context.Context, projectID, topicID string, credential []byte) error {
-	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
+func prepareResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
 	}
 	defer client.Close()
 
-	topic, err := client.CreateTopic(ctx, topicID)
+	topic, err := client.CreateTopic(ctx, cfg[models.ConfigTopicID])
 	if err != nil {
 		return fmt.Errorf("create topic: %w", err)
 	}
-	topic.Stop()
 
-	return nil
-}
-
-func createSubscription(ctx context.Context, projectID, topicID, subscriptionID string, credential []byte) error {
-	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
-	if err != nil {
-		return fmt.Errorf("new client: %w", err)
-	}
-	defer client.Close()
-
-	topic := client.Topic(topicID)
 	defer topic.Stop()
 
-	if _, err = client.CreateSubscription(ctx, subscriptionID, pubsub.SubscriptionConfig{
+	if _, err = client.CreateSubscription(ctx, cfg[models.ConfigSubscriptionID], pubsub.SubscriptionConfig{
 		Topic: topic,
 	}); err != nil {
 		return fmt.Errorf("create subscription: %w", err)
@@ -516,25 +835,105 @@ func createSubscription(ctx context.Context, projectID, topicID, subscriptionID 
 	return nil
 }
 
-func cleanup(ctx context.Context, projectID, topicID, subscriptionID string, credential []byte) error {
-	client, err := pubsub.NewClient(ctx, projectID, option.WithCredentialsJSON(credential))
+func cleanupResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
 	}
 	defer client.Close()
 
-	if err = client.Subscription(subscriptionID).Delete(ctx); err != nil {
+	if err = client.Subscription(cfg[models.ConfigSubscriptionID]).Delete(ctx); err != nil {
 		return fmt.Errorf("delete subscription: %w", err)
 	}
 
-	if err = client.Topic(topicID).Delete(ctx); err != nil {
+	if err = client.Topic(cfg[models.ConfigTopicID]).Delete(ctx); err != nil {
 		return fmt.Errorf("delete topic: %w", err)
 	}
 
 	return nil
 }
 
-func prepareData(messagesCount int, dstCfg map[string]string) (map[string]sdk.Record, error) {
+func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+	const gib = 1 << 30
+
+	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
+	if err != nil {
+		return fmt.Errorf("new admin: %w", err)
+	}
+	defer admin.Close()
+
+	reservationConfig := pubsublite.ReservationConfig{
+		Name:               reservation,
+		ThroughputCapacity: 1,
+	}
+
+	_, err = admin.CreateReservation(ctx, reservationConfig)
+	if err != nil {
+		return fmt.Errorf("create reservation: %w", err)
+	}
+
+	topicPath := fmt.Sprintf(topicPathFmt,
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID])
+
+	topicConfig := pubsublite.TopicConfig{
+		Name:                       topicPath,
+		PartitionCount:             1,        // Must be at least 1.
+		PublishCapacityMiBPerSec:   4,        // Must be 4-16 MiB/s.
+		SubscribeCapacityMiBPerSec: 4,        // Must be 4-32 MiB/s.
+		PerPartitionBytes:          30 * gib, // Must be 30 GiB-10 TiB.
+		ThroughputReservation:      reservation,
+		// Retain messages indefinitely as long as there is available storage.
+		RetentionDuration: pubsublite.InfiniteRetention,
+	}
+
+	_, err = admin.CreateTopic(ctx, topicConfig)
+	if err != nil {
+		return fmt.Errorf("create topic: %w", err)
+	}
+
+	subscriptionPath := fmt.Sprintf(subscriptionPathFmt,
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigSubscriptionID])
+
+	_, err = admin.CreateSubscription(ctx, pubsublite.SubscriptionConfig{
+		Name:                subscriptionPath,
+		Topic:               topicPath,
+		DeliveryRequirement: pubsublite.DeliverImmediately, // can also be DeliverAfterStored
+	})
+	if err != nil {
+		return fmt.Errorf("create subscription: %w", err)
+	}
+
+	return nil
+}
+
+func cleanupResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
+	if err != nil {
+		return fmt.Errorf("new admin: %w", err)
+	}
+	defer admin.Close()
+
+	err = admin.DeleteSubscription(ctx, fmt.Sprintf(subscriptionPathFmt,
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigSubscriptionID]))
+	if err != nil {
+		return fmt.Errorf("delete subscription: %w", err)
+	}
+
+	err = admin.DeleteTopic(ctx, fmt.Sprintf(topicPathFmt,
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID]))
+	if err != nil {
+		return fmt.Errorf("delete topic: %w", err)
+	}
+
+	err = admin.DeleteReservation(ctx, reservation)
+	if err != nil {
+		return fmt.Errorf("delete topic: %w", err)
+	}
+
+	return nil
+}
+
+func prepareData(messagesCount int, cfg map[string]string) (map[string]sdk.Record, error) {
 	const (
 		dataFmt          = "{\"id\": %d}"
 		metadataKey      = "metadata"
@@ -546,7 +945,7 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]sdk.Re
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	err := dest.Configure(ctx, dstCfg)
+	err := dest.Configure(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("configure: %s", err.Error())
 	}
@@ -587,9 +986,7 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]sdk.Re
 		return nil, fmt.Errorf("flush: %s", err.Error())
 	}
 
-	cancel()
-
-	err = dest.Teardown(context.Background())
+	err = dest.Teardown(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("teardown: %s", err.Error())
 	}
@@ -599,9 +996,7 @@ func prepareData(messagesCount int, dstCfg map[string]string) (map[string]sdk.Re
 
 func compare(records []sdk.Record, prepared map[string]sdk.Record) error {
 	for i := range records {
-		payload := string(records[i].Payload.Bytes())
-
-		pr, ok := prepared[payload]
+		pr, ok := prepared[string(records[i].Payload.Bytes())]
 		if !ok {
 			return fmt.Errorf("no data in the map by data: %s", payload)
 		}
