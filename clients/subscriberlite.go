@@ -17,7 +17,6 @@ package clients
 import (
 	"context"
 	"fmt"
-	"log"
 	"sync"
 
 	"cloud.google.com/go/pubsub"
@@ -61,7 +60,7 @@ func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite,
 		},
 	}, option.WithCredentialsJSON(credential))
 	if err != nil {
-		log.Fatalf("pscompat.NewSubscriberClientWithSettings error: %v", err)
+		return nil, fmt.Errorf("new subscriber client: %w", err)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
