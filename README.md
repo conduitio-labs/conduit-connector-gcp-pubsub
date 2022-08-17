@@ -7,10 +7,6 @@ It provides both, a source and destination GCP Pub/Sub connector.
 The connector supports [Pub/Sub Lite](https://cloud.google.com/pubsub/lite/docs) service.
 To use the Pub/Sub Lite service, it is necessary to fill out the `location` configuration field.
 
-Pub/Sub and Pub/Sub Lite are both horizontally scalable and managed messaging services. Pub/Sub is usually the default solution for most application integration and analytics use cases. 
-Pub/Sub Lite is only recommended for applications where achieving extremely low cost justifies some additional operational work.
-[Read more about choosing a service](https://cloud.google.com/pubsub/docs/choosing-pubsub-or-lite)
-
 ### Prerequisites
 - [Go](https://go.dev/) 1.18
 - (optional) [golangci-lint](https://github.com/golangci/golangci-lint) 1.46.2
@@ -35,6 +31,9 @@ Messages are continuously added to this queue as soon as they appear in the topi
 
 The second queue exists to acknowledge records using the `Ack` method. 
 Messages are added to this queue immediately after a record is returned by the Read method.
+
+If new messages are sent to GCP Pub/Sub while the connector is down, 
+these messages will be received after the connector is up.
 
 **CDC**: Messages that are in the service cannot be deleted or changed. 
 Consequently, all messages have no `action` key in the metadata.

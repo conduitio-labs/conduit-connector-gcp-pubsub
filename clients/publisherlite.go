@@ -49,7 +49,7 @@ func NewPublisherLite(ctx context.Context, cfg config.Destination, errAckCh chan
 		CountThreshold: cfg.BatchSize,
 	}, option.WithCredentialsJSON(credential))
 	if err != nil {
-		return nil, fmt.Errorf("create publisher client: %w", err)
+		return nil, fmt.Errorf("create lite publisher client: %w", err)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)

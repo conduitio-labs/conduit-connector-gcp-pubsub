@@ -24,37 +24,41 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/gammazero/deque"
 	"github.com/google/uuid"
+	"go.uber.org/multierr"
 )
 
 // Subscriber represents a struct with a GCP Pub/Sub client,
 // queues for messages, channels and a function to cancel the context.
 type Subscriber struct {
 	*pubSub
+	*subscriber
+}
 
-	lock       sync.Mutex
-	msgDeque   *deque.Deque[*pubsub.Message]
-	ackDeque   *deque.Deque[*pubsub.Message]
-	errorCh    chan error
-	canceledCh chan struct{}
-	ctxCancel  context.CancelFunc
+type subscriber struct {
+	lock      sync.Mutex
+	msgDeque  *deque.Deque[*pubsub.Message]
+	ackDeque  *deque.Deque[*pubsub.Message]
+	errorCh   chan error
+	ctxCancel context.CancelFunc
 }
 
 // NewSubscriber initializes a new subscriber client and starts receiving a messages to the queue.
 func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
-		return nil, fmt.Errorf("new pubsub client: %w", err)
+		return nil, err
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
 
 	sub := &Subscriber{
-		pubSub:     ps,
-		msgDeque:   deque.New[*pubsub.Message](),
-		ackDeque:   deque.New[*pubsub.Message](),
-		errorCh:    make(chan error),
-		canceledCh: make(chan struct{}),
-		ctxCancel:  cancel,
+		pubSub: ps,
+		subscriber: &subscriber{
+			msgDeque:  deque.New[*pubsub.Message](),
+			ackDeque:  deque.New[*pubsub.Message](),
+			errorCh:   make(chan error),
+			ctxCancel: cancel,
+		},
 	}
 
 	go func() {
@@ -63,27 +67,24 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 		// set MaxExtension less than 0, to not extend the ack deadline for each message
 		s.ReceiveSettings.MaxExtension = -1
 
-		if err = s.Receive(cctx,
-			func(_ context.Context, m *pubsub.Message) {
-				sub.lock.Lock()
-				defer sub.lock.Unlock()
+		err = s.Receive(cctx, func(_ context.Context, m *pubsub.Message) {
+			sub.lock.Lock()
+			defer sub.lock.Unlock()
 
-				sub.msgDeque.PushBack(m)
-			},
-		); err != nil {
-			close(sub.canceledCh)
-
+			sub.msgDeque.PushBack(m)
+		})
+		if err != nil {
 			sub.errorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
-		sub.canceledCh <- struct{}{}
+		sub.errorCh <- nil
 	}()
 
 	return sub, nil
 }
 
 // Next returns the next record or an error.
-func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
+func (s *subscriber) Next(ctx context.Context) (sdk.Record, error) {
 	select {
 	case err := <-s.errorCh:
 		return sdk.Record{}, err
@@ -98,19 +99,11 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 		}
 
 		msg := s.msgDeque.PopFront()
-		if msg == nil {
-			return sdk.Record{}, sdk.ErrBackoffRetry
-		}
 
 		s.ackDeque.PushBack(msg)
 
-		position, err := getBinaryUUID()
-		if err != nil {
-			return sdk.Record{}, fmt.Errorf("get position: %w", err)
-		}
-
 		return sdk.Record{
-			Position:  position,
+			Position:  sdk.Position(uuid.NewString()),
 			Metadata:  msg.Attributes,
 			CreatedAt: msg.PublishTime,
 			Payload:   sdk.RawData(msg.Data),
@@ -119,7 +112,7 @@ func (s *Subscriber) Next(ctx context.Context) (sdk.Record, error) {
 }
 
 // Ack indicates successful processing of a Message passed.
-func (s *Subscriber) Ack(ctx context.Context) error {
+func (s *subscriber) Ack(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return ctx.Err()
@@ -127,20 +120,31 @@ func (s *Subscriber) Ack(ctx context.Context) error {
 		s.lock.Lock()
 		defer s.lock.Unlock()
 
-		if s.ackDeque.Len() == 0 {
-			return nil
-		}
-
 		s.ackDeque.PopFront().Ack()
 
 		return nil
 	}
 }
 
-// Stop cancels the context to stop the GCP receiver,
-// marks all unread messages the client did not receive them,
-// waits the GCP receiver will stop and releases the GCP Pub/Sub client.
+// Stop calls stop method and releases the GCP Pub/Sub client.
 func (s *Subscriber) Stop() error {
+	err := s.stop()
+	if err != nil {
+		errPubSub := s.pubSub.close()
+		if errPubSub != nil {
+			err = multierr.Append(err, errPubSub)
+		}
+
+		return err
+	}
+
+	return s.pubSub.close()
+}
+
+// stop cancels the context to stop the GCP receiver,
+// marks all unread messages the client did not receive them,
+// and waits the GCP receiver will stop.
+func (s *subscriber) stop() error {
 	s.ctxCancel()
 
 	s.lock.Lock()
@@ -154,18 +158,5 @@ func (s *Subscriber) Stop() error {
 		s.ackDeque.PopFront().Nack()
 	}
 
-	<-s.canceledCh
-
-	return s.pubSub.close()
-}
-
-// getBinaryUUID creates a new random UUID and
-// returns a binary form of UUID value or an error.
-func getBinaryUUID() (sdk.Position, error) {
-	uuidBytes, err := uuid.New().MarshalBinary()
-	if err != nil {
-		return nil, fmt.Errorf("marshal uuid: %w", err)
-	}
-
-	return uuidBytes, nil
+	return <-s.errorCh
 }

@@ -37,7 +37,7 @@ func newClient(ctx context.Context, cfg config.General) (*pubSub, error) {
 
 	cli, err := pubsub.NewClient(ctx, cfg.ProjectID, option.WithCredentialsJSON(credential))
 	if err != nil {
-		return nil, fmt.Errorf("create a new pubsub client: %w", err)
+		return nil, fmt.Errorf("create pubsub client: %w", err)
 	}
 
 	return &pubSub{

@@ -43,7 +43,7 @@ type result struct {
 func NewPublisher(ctx context.Context, cfg config.Destination, errAckCh chan error) (*Publisher, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
-		return nil, fmt.Errorf("new pubsub client: %w", err)
+		return nil, err
 	}
 
 	cctx, cancel := context.WithCancel(ctx)

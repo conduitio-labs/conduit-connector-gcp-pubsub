@@ -17,29 +17,25 @@ package clients
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/pubsublite/pscompat"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
-	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/gammazero/deque"
 	"google.golang.org/api/option"
 )
 
-const subscriptionPathFmt = "projects/%s/locations/%s/subscriptions/%s"
+const (
+	subscriptionPathFmt  = "projects/%s/locations/%s/subscriptions/%s"
+	errMsgNotSupportNack = "pubsublite: subscriber client does not support nack. " +
+		"See NackHandler for how to customize nack handling"
+)
 
 // SubscriberLite represents a struct with a GCP Pub/Sub Lite client,
 // queues for messages, channels and a function to cancel the context.
 type SubscriberLite struct {
-	subscriber *pscompat.SubscriberClient
-
-	lock       sync.Mutex
-	msgDeque   *deque.Deque[*pubsub.Message]
-	ackDeque   *deque.Deque[*pubsub.Message]
-	errorCh    chan error
-	canceledCh chan struct{}
-	ctxCancel  context.CancelFunc
+	client *pscompat.SubscriberClient
+	*subscriber
 }
 
 // NewSubscriberLite initializes a new subscriber client of GCP Pub/Sub Lite
@@ -52,119 +48,45 @@ func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite,
 
 	subscriptionPath := fmt.Sprintf(subscriptionPathFmt, cfg.ProjectID, cfg.Location, cfg.SubscriptionID)
 
-	subscriber, err := pscompat.NewSubscriberClientWithSettings(ctx, subscriptionPath, pscompat.ReceiveSettings{
-		NackHandler: func(message *pubsub.Message) error {
-			sdk.Logger(ctx).Info().Msgf("message wasn't ack: %q", message.ID)
-
-			return nil
-		},
-	}, option.WithCredentialsJSON(credential))
+	client, err := pscompat.NewSubscriberClient(ctx, subscriptionPath, option.WithCredentialsJSON(credential))
 	if err != nil {
-		return nil, fmt.Errorf("new subscriber client: %w", err)
+		return nil, fmt.Errorf("create lite subscriber client: %w", err)
 	}
 
 	cctx, cancel := context.WithCancel(ctx)
 
 	sl := &SubscriberLite{
-		subscriber: subscriber,
-		msgDeque:   deque.New[*pubsub.Message](),
-		ackDeque:   deque.New[*pubsub.Message](),
-		errorCh:    make(chan error),
-		canceledCh: make(chan struct{}),
-		ctxCancel:  cancel,
+		client: client,
+		subscriber: &subscriber{
+			msgDeque:  deque.New[*pubsub.Message](),
+			ackDeque:  deque.New[*pubsub.Message](),
+			errorCh:   make(chan error),
+			ctxCancel: cancel,
+		},
 	}
 
 	go func() {
-		if err = sl.subscriber.Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
+		err = sl.client.Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
 			sl.lock.Lock()
 			defer sl.lock.Unlock()
 
 			sl.msgDeque.PushBack(m)
-		}); err != nil {
-			close(sl.canceledCh)
-
+		})
+		// this check is because there is no handling of the Nack method.
+		// If processed, the message will be considered acknowledged and will not be sent again
+		if err != nil && err.Error() != errMsgNotSupportNack {
 			sl.errorCh <- fmt.Errorf("subscription receive: %w", err)
 		}
 
-		sl.canceledCh <- struct{}{}
+		sl.errorCh <- nil
 	}()
 
 	return sl, nil
 }
 
-// Next returns the next record or an error.
-func (sl *SubscriberLite) Next(ctx context.Context) (sdk.Record, error) {
-	select {
-	case err := <-sl.errorCh:
-		return sdk.Record{}, err
-	case <-ctx.Done():
-		return sdk.Record{}, ctx.Err()
-	default:
-		sl.lock.Lock()
-		defer sl.lock.Unlock()
-
-		if sl.msgDeque.Len() == 0 {
-			return sdk.Record{}, sdk.ErrBackoffRetry
-		}
-
-		msg := sl.msgDeque.PopFront()
-		if msg == nil {
-			return sdk.Record{}, sdk.ErrBackoffRetry
-		}
-
-		sl.ackDeque.PushBack(msg)
-
-		position, err := getBinaryUUID()
-		if err != nil {
-			return sdk.Record{}, fmt.Errorf("get position: %w", err)
-		}
-
-		return sdk.Record{
-			Position:  position,
-			Metadata:  msg.Attributes,
-			CreatedAt: msg.PublishTime,
-			Payload:   sdk.RawData(msg.Data),
-		}, nil
-	}
-}
-
-// Ack indicates successful processing of a Message passed.
-func (sl *SubscriberLite) Ack(ctx context.Context) error {
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	default:
-		sl.lock.Lock()
-		defer sl.lock.Unlock()
-
-		if sl.ackDeque.Len() == 0 {
-			return nil
-		}
-
-		sl.ackDeque.PopFront().Ack()
-
-		return nil
-	}
-}
-
 // Stop cancels the context to stop the GCP receiver,
-// logs all unread messages the client did not receive them,
-// waits the GCP receiver will stop and releases the GCP Pub/Sub client.
+// marks all unread messages the client did not receive them,
+// and waits the GCP receiver will stop.
 func (sl *SubscriberLite) Stop() error {
-	sl.ctxCancel()
-
-	sl.lock.Lock()
-	defer sl.lock.Unlock()
-
-	for sl.msgDeque.Len() > 0 {
-		sl.msgDeque.PopFront().Nack()
-	}
-
-	for sl.ackDeque.Len() > 0 {
-		sl.ackDeque.PopFront().Nack()
-	}
-
-	<-sl.canceledCh
-
-	return nil
+	return sl.stop()
 }
