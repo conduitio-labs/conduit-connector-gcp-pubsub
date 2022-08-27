@@ -63,8 +63,6 @@ func Validate(s interface{}) error {
 				err = multierr.Append(err, InvalidEmailErr(models.ConfigKeyName(e.Field())))
 			case "object_name":
 				err = multierr.Append(err, InvalidNameErr(models.ConfigKeyName(e.Field())))
-			case "gte", "lte":
-				err = multierr.Append(err, OutOfRangeErr(models.ConfigKeyName(e.Field())))
 			}
 		}
 	}
@@ -73,7 +71,7 @@ func Validate(s interface{}) error {
 }
 
 func validateObjectName(fl v.FieldLevel) bool {
-	if strings.HasPrefix(strings.ToLower(fl.Field().String()), googPrefix) {
+	if strings.HasPrefix(strings.ToLower(fl.Field().String()), "goog") {
 		return false
 	}
 

@@ -19,9 +19,7 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
-	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination/mock"
@@ -54,32 +52,7 @@ func TestDestination_Configure(t *testing.T) {
 						ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
 						ProjectID:   "pubsub-test",
 					},
-					TopicID:    "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-					BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
-					BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
-				},
-			},
-		},
-		{
-			name: "valid config with all fields filled in",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:   "pubsub-test",
-				models.ConfigTopicID:     "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-				models.ConfigBatchSize:   "10",
-				models.ConfigBatchDelay:  "100ms",
-			},
-			want: Destination{
-				cfg: config.Destination{
-					General: config.General{
-						PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-						ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-						ProjectID:   "pubsub-test",
-					},
-					TopicID:    "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-					BatchSize:  10,
-					BatchDelay: 100 * time.Millisecond,
+					TopicID: "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
 				},
 			},
 		},

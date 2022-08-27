@@ -45,13 +45,12 @@ type driver struct {
 }
 
 // GenerateRecord generates a new record.
-func (d driver) GenerateRecord(_ *testing.T) sdk.Record {
+func (d driver) GenerateRecord(_ *testing.T, op sdk.Operation) sdk.Record {
 	return sdk.Record{
-		Position:  nil,
-		Metadata:  nil,
-		CreatedAt: time.Now(),
-		Key:       nil,
-		Payload:   sdk.RawData(uuid.New().String()),
+		Position:  sdk.Position(uuid.NewString()),
+		Operation: op,
+		Metadata:  sdk.Metadata{uuid.NewString(): uuid.NewString()},
+		Payload:   sdk.Change{After: sdk.RawData(uuid.NewString())},
 	}
 }
 
@@ -61,6 +60,8 @@ func TestAcceptance(t *testing.T) {
 		cfg = prepareConfig(t)
 
 		subscriptionIDs []string
+
+		reservation string
 	)
 
 	credential, err := getCredential(cfg)
@@ -68,8 +69,10 @@ func TestAcceptance(t *testing.T) {
 		t.Error(err)
 	}
 
-	reservation := fmt.Sprintf(reservationPathFmt,
-		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().Unix())
+	if cfg[models.ConfigLocation] != "" {
+		reservation = fmt.Sprintf(reservationPathFmt,
+			cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().Unix())
+	}
 
 	if err = prepareResources(ctx, cfg, reservation, credential); err != nil {
 		t.Error(err)
@@ -103,11 +106,6 @@ func TestAcceptance(t *testing.T) {
 					// the go.opencensus.io module is used indirectly in the cloud.google.com/go/pubsub module
 					goleak.IgnoreTopFunction("go.opencensus.io/stats/view.(*worker).start"),
 				},
-				Skip: []string{
-					// skip this test because it expects to receive data according to the FIFO principle.
-					// GCP returns the data in random order
-					"TestDestination_WriteAsync_Success",
-				},
 			},
 		},
 	})
@@ -134,8 +132,6 @@ func prepareConfig(t *testing.T) map[string]string {
 		models.ConfigClientEmail: clientEmail,
 		models.ConfigProjectID:   projectID,
 		models.ConfigTopicID:     fmt.Sprintf(topicFmt, time.Now().Unix()),
-		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
-		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
 	}
 }
 

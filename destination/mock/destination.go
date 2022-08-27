@@ -8,7 +8,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	conduit_connector_sdk "github.com/conduitio/conduit-connector-sdk"
+	sdk "github.com/conduitio/conduit-connector-sdk"
 	gomock "github.com/golang/mock/gomock"
 )
 
@@ -36,15 +36,17 @@ func (m *MockPublisher) EXPECT() *MockPublisherMockRecorder {
 }
 
 // Publish mocks base method.
-func (m *MockPublisher) Publish(arg0 context.Context, arg1 conduit_connector_sdk.Record, arg2 conduit_connector_sdk.AckFunc) {
+func (m *MockPublisher) Publish(arg0 context.Context, arg1 sdk.Record) error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Publish", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "Publish", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Publish indicates an expected call of Publish.
-func (mr *MockPublisherMockRecorder) Publish(arg0, arg1, arg2 interface{}) *gomock.Call {
+func (mr *MockPublisherMockRecorder) Publish(arg0, arg1 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockPublisher)(nil).Publish), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Publish", reflect.TypeOf((*MockPublisher)(nil).Publish), arg0, arg1)
 }
 
 // Stop mocks base method.

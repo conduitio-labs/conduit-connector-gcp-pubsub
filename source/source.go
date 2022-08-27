@@ -19,6 +19,7 @@ import (
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
@@ -36,9 +37,40 @@ type Source struct {
 	subscriber Subscriber
 }
 
-// New initialises a new source.
-func New() sdk.Source {
-	return &Source{}
+// NewSource initialises a new source.
+func NewSource() sdk.Source {
+	return sdk.SourceWithMiddleware(&Source{}, sdk.DefaultSourceMiddleware()...)
+}
+
+// Parameters returns a map of named Parameters that describe how to configure the Source.
+func (s *Source) Parameters() map[string]sdk.Parameter {
+	return map[string]sdk.Parameter{
+		models.ConfigPrivateKey: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub private key.",
+		},
+		models.ConfigClientEmail: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub client email key.",
+		},
+		models.ConfigProjectID: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub project id key.",
+		},
+		models.ConfigSubscriptionID: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub subscription id key.",
+		},
+		models.ConfigLocation: {
+			Default:     "",
+			Required:    false,
+			Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
+		},
+	}
 }
 
 // Configure parses and stores configurations, returns an error in case of invalid configuration.
@@ -74,12 +106,12 @@ func (s *Source) Open(ctx context.Context, _ sdk.Position) (err error) {
 
 // Read returns the next sdk.Record.
 func (s *Source) Read(ctx context.Context) (sdk.Record, error) {
-	r, err := s.subscriber.Next(ctx)
+	record, err := s.subscriber.Next(ctx)
 	if err != nil {
 		return sdk.Record{}, err
 	}
 
-	return r, nil
+	return record, nil
 }
 
 // Ack indicates successful processing of a message passed.

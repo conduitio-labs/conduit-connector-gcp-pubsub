@@ -17,9 +17,7 @@ package config
 import (
 	"reflect"
 	"testing"
-	"time"
 
-	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 )
@@ -45,30 +43,7 @@ func TestParseDestination(t *testing.T) {
 					ClientEmail: "test@test-pubsub.com",
 					ProjectID:   "test-pubsub",
 				},
-				TopicID:    "test-TOPic.scription~%_1230+",
-				BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
-				BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
-			},
-		},
-		{
-			name: "valid config with all fields filled in",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "10",
-				models.ConfigBatchDelay:  "100ms",
-			},
-			want: Destination{
-				General: General{
-					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-					ClientEmail: "test@test-pubsub.com",
-					ProjectID:   "test-pubsub",
-				},
-				TopicID:    "test-topic",
-				BatchSize:  10,
-				BatchDelay: 100 * time.Millisecond,
+				TopicID: "test-TOPic.scription~%_1230+",
 			},
 		},
 		{
@@ -142,174 +117,6 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigTopicID:     "gooG-test-topic",
 			},
 			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
-		},
-		{
-			name: "batch size is maximum",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "1000",
-			},
-			want: Destination{
-				General: General{
-					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-					ClientEmail: "test@test-pubsub.com",
-					ProjectID:   "test-pubsub",
-				},
-				TopicID:    "test-topic",
-				BatchSize:  1000,
-				BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
-			},
-		},
-		{
-			name: "batch size is minimum",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "1",
-			},
-			want: Destination{
-				General: General{
-					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-					ClientEmail: "test@test-pubsub.com",
-					ProjectID:   "test-pubsub",
-				},
-				TopicID:    "test-topic",
-				BatchSize:  1,
-				BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
-			},
-		},
-		{
-			name: "batch delay is maximum",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchDelay:  "1s",
-			},
-			want: Destination{
-				General: General{
-					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-					ClientEmail: "test@test-pubsub.com",
-					ProjectID:   "test-pubsub",
-				},
-				TopicID:    "test-topic",
-				BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
-				BatchDelay: 1 * time.Second,
-			},
-		},
-		{
-			name: "batch delay is minimum",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchDelay:  "1ms",
-			},
-			want: Destination{
-				General: General{
-					PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-					ClientEmail: "test@test-pubsub.com",
-					ProjectID:   "test-pubsub",
-				},
-				TopicID:    "test-topic",
-				BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
-				BatchDelay: 1 * time.Millisecond,
-			},
-		},
-		{
-			name: "batch size with a wrong data type",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "test",
-			},
-			expectedErr: validator.InvalidIntegerTypeErr(models.ConfigBatchSize),
-		},
-		{
-			name: "batch size is zero",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "0",
-			},
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize),
-		},
-		{
-			name: "batch size is negative",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "-1",
-			},
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize),
-		},
-		{
-			name: "batch size is too big",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchSize:   "1001",
-			},
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchSize),
-		},
-		{
-			name: "batch delay with a wrong data type",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchDelay:  "test",
-			},
-			expectedErr: validator.InvalidTimeDurationTypeErr(models.ConfigBatchDelay),
-		},
-		{
-			name: "batch delay is zero",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchDelay:  "0",
-			},
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay),
-		},
-		{
-			name: "batch delay is less than the minimum",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchDelay:  "100ns",
-			},
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay),
-		},
-		{
-			name: "batch delay is too big",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
-				models.ConfigClientEmail: "test@test-pubsub.com",
-				models.ConfigProjectID:   "test-pubsub",
-				models.ConfigTopicID:     "test-topic",
-				models.ConfigBatchDelay:  "2s",
-			},
-			expectedErr: validator.OutOfRangeErr(models.ConfigBatchDelay),
 		},
 	}
 

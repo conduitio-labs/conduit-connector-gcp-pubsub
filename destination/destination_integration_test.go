@@ -37,29 +37,29 @@ const (
 	reservationPathFmt = "projects/%s/locations/%s/reservations/reservation-%d"
 )
 
-func TestDestination_WriteAsync(t *testing.T) {
-	var (
-		ctx = context.Background()
-		cfg = prepareConfig(t)
-	)
+func TestDestination_Write(t *testing.T) {
+	var cfg = prepareConfig(t)
 
 	credential, err := getCredential(cfg)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err = prepareResources(ctx, cfg, credential); err != nil {
+	if err = prepareResources(cfg, credential); err != nil {
 		t.Errorf("create topic: %s", err.Error())
 	}
 
 	t.Cleanup(func() {
-		if err = cleanupResources(ctx, cfg, credential); err != nil {
+		if err = cleanupResources(cfg, credential); err != nil {
 			t.Errorf("failed to delete topic: %s", err.Error())
 		}
 	})
 
 	t.Run("success case", func(t *testing.T) {
-		dest := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			dest        = NewDestination()
+		)
 
 		err = dest.Configure(ctx, cfg)
 		if err != nil {
@@ -71,32 +71,37 @@ func TestDestination_WriteAsync(t *testing.T) {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(payload),
-		}, func(ackErr error) error {
-			if ackErr != nil {
-				t.Errorf("ack func: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
+		records := []sdk.Record{
+			{
+				Payload: sdk.Change{After: sdk.RawData(payload)},
+			},
 		}
 
-		err = dest.Flush(ctx)
+		n := 0
+		n, err = dest.Write(ctx, records)
 		if err != nil {
-			t.Errorf("flush: %s", err.Error())
+			t.Errorf("write: %s", err.Error())
 		}
 
-		err = dest.Teardown(ctx)
+		if n != len(records) {
+			t.Errorf("the number of written records: got %d, expected %d", n, len(records))
+		}
+
+		cancel()
+
+		err = dest.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		dest := New()
+		const errMsgSizeLimit = "publish message: item size exceeds bundle byte limit"
+
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			dest        = NewDestination()
+		)
 
 		err = dest.Configure(ctx, cfg)
 		if err != nil {
@@ -108,41 +113,37 @@ func TestDestination_WriteAsync(t *testing.T) {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		p := make([]byte, 10*1024*1024+1)
+		// make the payload 10 Mb, so that the message sent with the payload is larger
+		p := make([]byte, 10*1024*1024)
 		for i := range p {
 			p[i] = '!'
 		}
 
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(p),
-		}, func(ackErr error) error {
-			if ackErr == nil {
-				t.Error("ack funk must return an error")
-			}
+		records := []sdk.Record{{
+			Payload: sdk.Change{After: sdk.RawData(p)},
+		}}
 
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
+		n := 0
+		n, err = dest.Write(ctx, records)
+		if err.Error() != errMsgSizeLimit {
+			t.Errorf("got: \"%s\", expected: \"%s\"", err.Error(), errMsgSizeLimit)
 		}
 
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
+		if n != 0 {
+			t.Errorf("the number of written records: got %d, expected 0", n)
 		}
 
-		err = dest.Teardown(ctx)
+		cancel()
+
+		err = dest.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 }
 
-func TestDestination_WriteAsync_Lite(t *testing.T) {
-	var (
-		ctx = context.Background()
-		cfg = prepareConfigLite(t)
-	)
+func TestDestination_Write_Lite(t *testing.T) {
+	var cfg = prepareConfigLite(t)
 
 	credential, err := getCredential(cfg)
 	if err != nil {
@@ -152,18 +153,21 @@ func TestDestination_WriteAsync_Lite(t *testing.T) {
 	reservation := fmt.Sprintf(reservationPathFmt,
 		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().UnixNano())
 
-	if err = prepareResourcesLite(ctx, cfg, reservation, credential); err != nil {
+	if err = prepareResourcesLite(cfg, reservation, credential); err != nil {
 		t.Errorf("create topic: %s", err.Error())
 	}
 
 	t.Cleanup(func() {
-		if err = cleanupResourcesLite(ctx, cfg, reservation, credential); err != nil {
+		if err = cleanupResourcesLite(cfg, reservation, credential); err != nil {
 			t.Errorf("failed to delete topic: %s", err.Error())
 		}
 	})
 
 	t.Run("success case", func(t *testing.T) {
-		dest := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			dest        = NewDestination()
+		)
 
 		err = dest.Configure(ctx, cfg)
 		if err != nil {
@@ -175,32 +179,38 @@ func TestDestination_WriteAsync_Lite(t *testing.T) {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(payload),
-		}, func(ackErr error) error {
-			if ackErr != nil {
-				t.Errorf("ack func: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
+		records := []sdk.Record{
+			{
+				Payload: sdk.Change{After: sdk.RawData(payload)},
+			},
 		}
 
-		err = dest.Flush(ctx)
+		n := 0
+		n, err = dest.Write(ctx, records)
 		if err != nil {
-			t.Errorf("flush: %s", err.Error())
+			t.Errorf("write: %s", err.Error())
 		}
 
-		err = dest.Teardown(ctx)
+		if n != len(records) {
+			t.Errorf("the number of written records: got %d, expected %d", n, len(records))
+		}
+
+		cancel()
+
+		err = dest.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		dest := New()
+		const errMsgSizeLimit = "publish message: pubsublite: " +
+			"serialized message size is 3670021 bytes: maximum allowed message size is MaxPublishRequestBytes (3670016)"
+
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			dest        = NewDestination()
+		)
 
 		err = dest.Configure(ctx, cfg)
 		if err != nil {
@@ -212,30 +222,29 @@ func TestDestination_WriteAsync_Lite(t *testing.T) {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		p := make([]byte, 3.5*1024*1024+1)
+		// make the payload 3.5 Mb, so that the message sent with the payload is larger
+		p := make([]byte, 3.5*1024*1024)
 		for i := range p {
 			p[i] = '!'
 		}
 
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(p),
-		}, func(ackErr error) error {
-			if ackErr == nil {
-				t.Error("ack funk must return an error")
-			}
+		records := []sdk.Record{{
+			Payload: sdk.Change{After: sdk.RawData(p)},
+		}}
 
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
+		n := 0
+		n, err = dest.Write(ctx, records)
+		if err.Error() != errMsgSizeLimit {
+			t.Errorf("got: \"%s\", expected: \"%s\"", err.Error(), errMsgSizeLimit)
 		}
 
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
+		if n != 0 {
+			t.Errorf("the number of written records: got %d, expected 0", n)
 		}
 
-		err = dest.Teardown(ctx)
+		cancel()
+
+		err = dest.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -269,8 +278,6 @@ func prepareConfig(t *testing.T) map[string]string {
 		models.ConfigClientEmail: clientEmail,
 		models.ConfigProjectID:   projectID,
 		models.ConfigTopicID:     fmt.Sprintf(topicFmt, time.Now().Unix()),
-		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
-		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
 	}
 }
 
@@ -296,7 +303,9 @@ func getCredential(src map[string]string) ([]byte, error) {
 	}.Marshal()
 }
 
-func prepareResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+func prepareResources(cfg map[string]string, credential []byte) error {
+	var ctx = context.Background()
+
 	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
@@ -312,7 +321,9 @@ func prepareResources(ctx context.Context, cfg map[string]string, credential []b
 	return nil
 }
 
-func cleanupResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+func cleanupResources(cfg map[string]string, credential []byte) error {
+	var ctx = context.Background()
+
 	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
@@ -326,8 +337,10 @@ func cleanupResources(ctx context.Context, cfg map[string]string, credential []b
 	return nil
 }
 
-func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+func prepareResourcesLite(cfg map[string]string, reservation string, credential []byte) error {
 	const gib = 1 << 30
+
+	var ctx = context.Background()
 
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
 	if err != nil {
@@ -348,13 +361,12 @@ func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservatio
 	topicConfig := pubsublite.TopicConfig{
 		Name: fmt.Sprintf(topicPathFmt,
 			cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID]),
-		PartitionCount:             1,        // Must be at least 1.
-		PublishCapacityMiBPerSec:   4,        // Must be 4-16 MiB/s.
-		SubscribeCapacityMiBPerSec: 4,        // Must be 4-32 MiB/s.
-		PerPartitionBytes:          30 * gib, // Must be 30 GiB-10 TiB.
+		PartitionCount:             1,
+		PublishCapacityMiBPerSec:   4,
+		SubscribeCapacityMiBPerSec: 4,
+		PerPartitionBytes:          30 * gib,
 		ThroughputReservation:      reservation,
-		// Retain messages indefinitely as long as there is available storage.
-		RetentionDuration: pubsublite.InfiniteRetention,
+		RetentionDuration:          pubsublite.InfiniteRetention,
 	}
 
 	_, err = admin.CreateTopic(ctx, topicConfig)
@@ -365,7 +377,9 @@ func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservatio
 	return nil
 }
 
-func cleanupResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+func cleanupResourcesLite(cfg map[string]string, reservation string, credential []byte) error {
+	var ctx = context.Background()
+
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new admin: %w", err)

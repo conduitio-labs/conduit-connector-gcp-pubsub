@@ -19,7 +19,6 @@ import (
 	"errors"
 	"reflect"
 	"testing"
-	"time"
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
@@ -31,13 +30,13 @@ import (
 )
 
 func TestSource_Configure(t *testing.T) {
-	src := Source{}
+	t.Parallel()
 
 	tests := []struct {
-		name        string
-		in          map[string]string
-		want        Source
-		expectedErr error
+		name string
+		in   map[string]string
+		want Source
+		err  error
 	}{
 		{
 			name: "valid config",
@@ -65,49 +64,28 @@ func TestSource_Configure(t *testing.T) {
 				models.ConfigProjectID:      "pubsub-test",
 				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
 			},
-			expectedErr: validator.RequiredErr(models.ConfigPrivateKey),
-		},
-		{
-			name: "client email is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigProjectID:      "pubsub-test",
-				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigClientEmail),
-		},
-		{
-			name: "project id is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigProjectID),
-		},
-		{
-			name: "subscription id is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:   "pubsub-test",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigSubscriptionID),
+			err: validator.RequiredErr(models.ConfigPrivateKey),
 		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
-			err := src.Configure(context.Background(), tt.in)
+			t.Parallel()
+
+			s := new(Source)
+
+			err := s.Configure(context.Background(), tt.in)
 			if err != nil {
-				if tt.expectedErr == nil {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
+				if tt.err == nil {
+					t.Errorf("unexpected error: %s", err.Error())
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr.Error() {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
+				if err.Error() != tt.err.Error() {
+					t.Errorf("unexpected error, got: %s, want: %s", err.Error(), tt.err.Error())
 
 					return
 				}
@@ -115,8 +93,8 @@ func TestSource_Configure(t *testing.T) {
 				return
 			}
 
-			if !reflect.DeepEqual(src.cfg, tt.want.cfg) {
-				t.Errorf("parse = %v, want %v", src.cfg, tt.want.cfg)
+			if !reflect.DeepEqual(s.cfg, tt.want.cfg) {
+				t.Errorf("parse = %v, want %v", s.cfg, tt.want.cfg)
 
 				return
 			}
@@ -136,10 +114,9 @@ func TestSource_ReadSuccess(t *testing.T) {
 	st["key"] = "value"
 
 	record := sdk.Record{
-		Position:  sdk.Position(`{"last_processed_element_value": 1}`),
-		Metadata:  nil,
-		CreatedAt: time.Time{},
-		Payload:   st,
+		Position: sdk.Position(`{"last_processed_element_value": 1}`),
+		Metadata: nil,
+		Payload:  sdk.Change{After: st},
 	}
 
 	sub := mock.NewMockSubscriber(ctrl)

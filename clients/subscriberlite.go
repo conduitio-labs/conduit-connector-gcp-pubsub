@@ -25,63 +25,59 @@ import (
 	"google.golang.org/api/option"
 )
 
-const (
-	subscriptionPathFmt  = "projects/%s/locations/%s/subscriptions/%s"
-	errMsgNotSupportNack = "pubsublite: subscriber client does not support nack. " +
-		"See NackHandler for how to customize nack handling"
-)
-
-// SubscriberLite represents a struct with a GCP Pub/Sub Lite client,
-// queues for messages, channels and a function to cancel the context.
+// SubscriberLite represents queues for messages, an error channel.
 type SubscriberLite struct {
-	client *pscompat.SubscriberClient
 	*subscriber
 }
 
 // NewSubscriberLite initializes a new subscriber client of GCP Pub/Sub Lite
 // and starts receiving a messages to the queue.
 func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite, error) {
+	const (
+		subscriptionPathFmt  = "projects/%s/locations/%s/subscriptions/%s"
+		errMsgNotSupportNack = "pubsublite: subscriber client does not support nack. " +
+			"See NackHandler for how to customize nack handling"
+	)
+
 	credential, err := cfg.Marshal()
 	if err != nil {
 		return nil, err
 	}
 
-	subscriptionPath := fmt.Sprintf(subscriptionPathFmt, cfg.ProjectID, cfg.Location, cfg.SubscriptionID)
+	subLite := &SubscriberLite{
+		subscriber: &subscriber{
+			msgDeque: deque.New[*pubsub.Message](),
+			ackDeque: deque.New[*pubsub.Message](),
+			errorCh:  make(chan error),
+		},
+	}
 
-	client, err := pscompat.NewSubscriberClient(ctx, subscriptionPath, option.WithCredentialsJSON(credential))
+	client, err := pscompat.NewSubscriberClient(context.Background(),
+		fmt.Sprintf(subscriptionPathFmt, cfg.ProjectID, cfg.Location, cfg.SubscriptionID),
+		option.WithCredentialsJSON(credential))
 	if err != nil {
 		return nil, fmt.Errorf("create lite subscriber client: %w", err)
 	}
 
-	cctx, cancel := context.WithCancel(ctx)
-
-	sl := &SubscriberLite{
-		client: client,
-		subscriber: &subscriber{
-			msgDeque:  deque.New[*pubsub.Message](),
-			ackDeque:  deque.New[*pubsub.Message](),
-			errorCh:   make(chan error),
-			ctxCancel: cancel,
-		},
-	}
-
 	go func() {
-		err = sl.client.Receive(cctx, func(ctx context.Context, m *pubsub.Message) {
-			sl.lock.Lock()
-			defer sl.lock.Unlock()
+		err = client.Receive(ctx, func(_ context.Context, m *pubsub.Message) {
+			subLite.mu.Lock()
+			defer subLite.mu.Unlock()
 
-			sl.msgDeque.PushBack(m)
+			subLite.msgDeque.PushBack(m)
 		})
 		// this check is because there is no handling of the Nack method.
 		// If processed, the message will be considered acknowledged and will not be sent again
 		if err != nil && err.Error() != errMsgNotSupportNack {
-			sl.errorCh <- fmt.Errorf("subscription receive: %w", err)
+			subLite.errorCh <- fmt.Errorf("subscription lite receive: %w", err)
+
+			return
 		}
 
-		sl.errorCh <- nil
+		subLite.errorCh <- nil
 	}()
 
-	return sl, nil
+	return subLite, nil
 }
 
 // Stop cancels the context to stop the GCP receiver,

@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
@@ -30,90 +29,94 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/google/uuid"
 	"github.com/jpillora/backoff"
 	"google.golang.org/api/option"
 )
 
 const (
-	payload = "Hello, 世界"
-
 	topicFmt        = "source-test-topic-%d"
 	subscriptionFmt = "source-test-subscription-%d"
 
 	topicPathFmt        = "projects/%s/locations/%s/topics/%s"
 	subscriptionPathFmt = "projects/%s/locations/%s/subscriptions/%s"
 	reservationPathFmt  = "projects/%s/locations/%s/reservations/reservation-%d"
+
+	metadataKey = "metadata"
 )
 
 func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
-	var (
-		ctx = context.Background()
-		cfg = prepareConfig(t)
-	)
+	var cfg = prepareConfig(t)
 
 	credential, err := getCredential(cfg)
 	if err != nil {
 		t.Error(err)
 	}
 
-	if err = prepareResources(ctx, cfg, credential); err != nil {
+	if err = prepareResources(cfg, credential); err != nil {
 		t.Errorf("prepare resource: %s", err.Error())
 	}
 
 	t.Cleanup(func() {
-		if err = cleanupResources(ctx, cfg, credential); err != nil {
+		if err = cleanupResources(cfg, credential); err != nil {
 			t.Errorf("failed to cleanup resources: %s", err.Error())
 		}
 	})
 
 	t.Run("read empty", func(t *testing.T) {
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+			record sdk.Record
+		)
 
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		record, err := src.Read(cctx)
+		record, err = src.Read(ctx)
 		if err != sdk.ErrBackoffRetry {
 			t.Errorf("read error: got = %v, want = %v", err, sdk.ErrBackoffRetry)
 		}
+
+		cancel()
 
 		if record.Key != nil {
 			t.Error("record should be empty")
 		}
 
-		err = src.Teardown(ctx)
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("configure, open and teardown", func(t *testing.T) {
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
+		)
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -122,95 +125,45 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("publish and receive 1 message", func(t *testing.T) {
 		const messagesCount = 1
 
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+			record   sdk.Record
+			prepared map[string]sdk.Record
+		)
 
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, cfg)
+		prepared, err = prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
 
-		record, err := readWithBackoffRetry(cctx, src)
+		record, err = readWithBackoffRetry(ctx, src)
 		if err != nil {
 			t.Errorf("read: %s", err.Error())
 		}
 
-		err = src.Ack(cctx, nil)
+		err = src.Ack(ctx, nil)
 		if err != nil {
 			t.Errorf("ack: %s", err.Error())
 		}
 
-		records := make([]sdk.Record, 0, messagesCount)
-		records = append(records, record)
-
-		err = src.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-
-		err = compare(records, prepared)
-		if err != nil {
-			t.Errorf(err.Error())
-		}
-	})
-
-	t.Run("publish and receive 1 message without acknowledgment", func(t *testing.T) {
-		const messagesCount = 1
-
-		src := New()
-
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Configure(cctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = src.Open(cctx, nil)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		prepared, err := prepareData(messagesCount, cfg)
-		if err != nil {
-			t.Errorf("generate and publish: %s", err.Error())
-		}
-
-		_, err = readWithBackoffRetry(cctx, src)
-		if err != nil {
-			t.Errorf("read: %s", err.Error())
-		}
-
-		// there should be an acknowledgement of the message, but there isn't,
-		// so trying to get the same message again (it will be received in a while)
-
-		record, err := readWithBackoffRetry(cctx, src)
-		if err != nil {
-			t.Errorf("read: %s", err.Error())
-		}
-
-		err = src.Ack(cctx, nil)
-		if err != nil {
-			t.Errorf("ack: %s", err.Error())
-		}
+		cancel()
 
 		records := make([]sdk.Record, 0, messagesCount)
 		records = append(records, record)
 
-		err = src.Teardown(ctx)
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -229,22 +182,25 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			secondStopMessagesCount = 17
 		)
 
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+			record   sdk.Record
+			prepared map[string]sdk.Record
+		)
 
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, cfg)
+		prepared, err = prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -252,12 +208,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for len(records) < firstStopMessagesCount {
-			record, err := readWithBackoffRetry(cctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -265,26 +221,27 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		cctx, cancel = context.WithCancel(context.Background())
-		defer cancel()
+		ctx, cancel = context.WithCancel(context.Background())
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
 		for len(records) < secondStopMessagesCount {
-			record, err := readWithBackoffRetry(cctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -292,26 +249,27 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		cctx, cancel = context.WithCancel(context.Background())
-		defer cancel()
+		ctx, cancel = context.WithCancel(context.Background())
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
 		for len(records) < messagesCount {
-			record, err := readWithBackoffRetry(ctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -319,7 +277,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -333,22 +293,25 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("publish 2500 messages in a row", func(t *testing.T) {
 		const messagesCount = 2500
 
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+			record   sdk.Record
+			prepared map[string]sdk.Record
+		)
 
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, cfg)
+		prepared, err = prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -356,12 +319,12 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for len(records) < messagesCount {
-			record, err := readWithBackoffRetry(cctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -369,7 +332,9 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -382,12 +347,7 @@ func TestSource_Read(t *testing.T) { // nolint:gocyclo,nolintlint
 }
 
 func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
-	var (
-		ctx = context.Background()
-		cfg = prepareConfigLite(t)
-
-		err error
-	)
+	var cfg = prepareConfigLite(t)
 
 	credential, err := getCredential(cfg)
 	if err != nil {
@@ -397,64 +357,68 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 	reservation := fmt.Sprintf(reservationPathFmt,
 		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().Unix())
 
-	if err = prepareResourcesLite(ctx, cfg, reservation, credential); err != nil {
+	if err = prepareResourcesLite(cfg, reservation, credential); err != nil {
 		t.Errorf("prepare resource: %s", err.Error())
 	}
 
 	t.Cleanup(func() {
-		if err = cleanupResourcesLite(ctx, cfg, reservation, credential); err != nil {
+		if err = cleanupResourcesLite(cfg, reservation, credential); err != nil {
 			t.Errorf("failed to cleanup resources: %s", err.Error())
 		}
 	})
 
 	t.Run("read empty", func(t *testing.T) {
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
+		)
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		record, err := src.Read(cctx)
+		record, err := src.Read(ctx)
 		if err != sdk.ErrBackoffRetry {
 			t.Errorf("read error: got = %v, want = %v", err, sdk.ErrBackoffRetry)
 		}
+
+		cancel()
 
 		if record.Key != nil {
 			t.Error("record should be empty")
 		}
 
-		err = src.Teardown(ctx)
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 	})
 
 	t.Run("configure, open and teardown", func(t *testing.T) {
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
+		)
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -463,17 +427,17 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("publish and receive 1 message", func(t *testing.T) {
 		const messagesCount = 1
 
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
+		)
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
@@ -483,87 +447,22 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 			t.Errorf("generate and publish: %s", err.Error())
 		}
 
-		record, err := readWithBackoffRetry(cctx, src)
+		record, err := readWithBackoffRetry(ctx, src)
 		if err != nil {
 			t.Errorf("read: %s", err.Error())
 		}
 
-		err = src.Ack(cctx, nil)
+		err = src.Ack(ctx, nil)
 		if err != nil {
 			t.Errorf("ack: %s", err.Error())
 		}
 
-		records := make([]sdk.Record, 0, messagesCount)
-		records = append(records, record)
-
-		err = src.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-
-		err = compare(records, prepared)
-		if err != nil {
-			t.Errorf(err.Error())
-		}
-	})
-
-	t.Run("publish and receive 1 message without acknowledgment", func(t *testing.T) {
-		const messagesCount = 1
-
-		src := New()
-
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
-
-		err = src.Configure(cctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = src.Open(cctx, nil)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		prepared, err := prepareData(messagesCount, cfg)
-		if err != nil {
-			t.Errorf("generate and publish: %s", err.Error())
-		}
-
-		_, err = readWithBackoffRetry(cctx, src)
-		if err != nil {
-			t.Errorf("read: %s", err.Error())
-		}
-
-		// There should be an acknowledgement of the message, but there isn't,
-		// so trying to reconnect and receive this message again.
-		// Lite subscriptions don't have an acknowledgment deadline and
-		// the Pub/Sub Lite service doesn't redeliver unacknowledged messages over an open streaming connection.
-
-		err = src.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-
-		err = src.Open(cctx, nil)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		record, err := readWithBackoffRetry(cctx, src)
-		if err != nil {
-			t.Errorf("read: %s", err.Error())
-		}
-
-		err = src.Ack(cctx, nil)
-		if err != nil {
-			t.Errorf("ack: %s", err.Error())
-		}
+		cancel()
 
 		records := make([]sdk.Record, 0, messagesCount)
 		records = append(records, record)
 
-		err = src.Teardown(ctx)
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -582,22 +481,25 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 			secondStopMessagesCount = 17
 		)
 
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+			record   sdk.Record
+			prepared map[string]sdk.Record
+		)
 
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, cfg)
+		prepared, err = prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -605,12 +507,12 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for len(records) < firstStopMessagesCount {
-			record, err := readWithBackoffRetry(cctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -618,26 +520,27 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		cctx, cancel = context.WithCancel(context.Background())
-		defer cancel()
+		ctx, cancel = context.WithCancel(context.Background())
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
 		for len(records) < secondStopMessagesCount {
-			record, err := readWithBackoffRetry(cctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -645,26 +548,27 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
 
-		cctx, cancel = context.WithCancel(context.Background())
-		defer cancel()
+		ctx, cancel = context.WithCancel(context.Background())
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
 		for len(records) < messagesCount {
-			record, err := readWithBackoffRetry(ctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -672,7 +576,9 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -686,22 +592,25 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 	t.Run("publish 2500 messages in a row", func(t *testing.T) {
 		const messagesCount = 2500
 
-		src := New()
+		var (
+			ctx, cancel = context.WithCancel(context.Background())
+			src         = NewSource()
 
-		cctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+			record   sdk.Record
+			prepared map[string]sdk.Record
+		)
 
-		err = src.Configure(cctx, cfg)
+		err = src.Configure(ctx, cfg)
 		if err != nil {
 			t.Errorf("configure: %s", err.Error())
 		}
 
-		err = src.Open(cctx, nil)
+		err = src.Open(ctx, nil)
 		if err != nil {
 			t.Errorf("open: %s", err.Error())
 		}
 
-		prepared, err := prepareData(messagesCount, cfg)
+		prepared, err = prepareData(messagesCount, cfg)
 		if err != nil {
 			t.Errorf("generate and publish: %s", err.Error())
 		}
@@ -709,12 +618,12 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 		records := make([]sdk.Record, 0, messagesCount)
 
 		for len(records) < messagesCount {
-			record, err := readWithBackoffRetry(cctx, src)
+			record, err = readWithBackoffRetry(ctx, src)
 			if err != nil {
 				t.Errorf("read: %s", err.Error())
 			}
 
-			err = src.Ack(cctx, nil)
+			err = src.Ack(ctx, nil)
 			if err != nil {
 				t.Errorf("ack: %s", err.Error())
 			}
@@ -722,7 +631,9 @@ func TestSource_Read_Lite(t *testing.T) { // nolint:gocyclo,nolintlint
 			records = append(records, record)
 		}
 
-		err = src.Teardown(ctx)
+		cancel()
+
+		err = src.Teardown(context.Background())
 		if err != nil {
 			t.Errorf("teardown: %s", err.Error())
 		}
@@ -784,8 +695,6 @@ func prepareConfig(t *testing.T) map[string]string {
 		models.ConfigClientEmail:    clientEmail,
 		models.ConfigProjectID:      projectID,
 		models.ConfigTopicID:        fmt.Sprintf(topicFmt, time.Now().Unix()),
-		models.ConfigBatchSize:      os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
-		models.ConfigBatchDelay:     os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
 		models.ConfigSubscriptionID: fmt.Sprintf(subscriptionFmt, time.Now().Unix()),
 	}
 }
@@ -812,7 +721,9 @@ func getCredential(src map[string]string) ([]byte, error) {
 	}.Marshal()
 }
 
-func prepareResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+func prepareResources(cfg map[string]string, credential []byte) error {
+	var ctx = context.Background()
+
 	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
@@ -835,7 +746,9 @@ func prepareResources(ctx context.Context, cfg map[string]string, credential []b
 	return nil
 }
 
-func cleanupResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+func cleanupResources(cfg map[string]string, credential []byte) error {
+	var ctx = context.Background()
+
 	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
@@ -853,8 +766,10 @@ func cleanupResources(ctx context.Context, cfg map[string]string, credential []b
 	return nil
 }
 
-func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+func prepareResourcesLite(cfg map[string]string, reservation string, credential []byte) error {
 	const gib = 1 << 30
+
+	var ctx = context.Background()
 
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
 	if err != nil {
@@ -906,7 +821,9 @@ func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservatio
 	return nil
 }
 
-func cleanupResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+func cleanupResourcesLite(cfg map[string]string, reservation string, credential []byte) error {
+	var ctx = context.Background()
+
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new admin: %w", err)
@@ -934,15 +851,11 @@ func cleanupResourcesLite(ctx context.Context, cfg map[string]string, reservatio
 }
 
 func prepareData(messagesCount int, cfg map[string]string) (map[string]sdk.Record, error) {
-	const (
-		dataFmt          = "{\"id\": %d}"
-		metadataKey      = "metadata"
-		metadataValueFmt = "metadata_%d"
+	var (
+		ctx, cancel = context.WithCancel(context.Background())
+		dest        = destination.NewDestination()
 	)
 
-	dest := destination.New()
-
-	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	err := dest.Configure(ctx, cfg)
@@ -955,38 +868,33 @@ func prepareData(messagesCount int, cfg map[string]string) (map[string]sdk.Recor
 		return nil, fmt.Errorf("open: %s", err.Error())
 	}
 
+	records := make([]sdk.Record, messagesCount)
 	prepared := make(map[string]sdk.Record, messagesCount)
 
 	for i := 0; i < messagesCount; i++ {
-		data := fmt.Sprintf(dataFmt, i)
+		payload := uuid.NewString()
 
-		r := sdk.Record{
-			Metadata: map[string]string{
-				metadataKey: fmt.Sprintf(metadataValueFmt, i),
-			},
-			Payload: sdk.RawData(data),
+		record := sdk.Record{
+			Metadata: map[string]string{metadataKey: uuid.NewString()},
+			Payload:  sdk.Change{After: sdk.RawData(payload)},
 		}
 
-		err = dest.WriteAsync(ctx, r, func(ackErr error) error {
-			if ackErr != nil {
-				return fmt.Errorf("ack func: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			return nil, fmt.Errorf("write async: %s", err.Error())
-		}
-
-		prepared[data] = r
+		records[i] = record
+		prepared[payload] = record
 	}
 
-	err = dest.Flush(ctx)
+	n, err := dest.Write(ctx, records)
 	if err != nil {
-		return nil, fmt.Errorf("flush: %s", err.Error())
+		return nil, fmt.Errorf("write: %s", err.Error())
 	}
 
-	err = dest.Teardown(ctx)
+	cancel()
+
+	if n != messagesCount {
+		return nil, fmt.Errorf("the number of written records: got %d, expected %d", n, messagesCount)
+	}
+
+	err = dest.Teardown(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("teardown: %s", err.Error())
 	}
@@ -996,18 +904,35 @@ func prepareData(messagesCount int, cfg map[string]string) (map[string]sdk.Recor
 
 func compare(records []sdk.Record, prepared map[string]sdk.Record) error {
 	for i := range records {
-		pr, ok := prepared[string(records[i].Payload.Bytes())]
+		payload := string(records[i].Payload.After.Bytes())
+
+		pr, ok := prepared[payload]
 		if !ok {
-			return fmt.Errorf("no data in the map by data: %s", payload)
+			return fmt.Errorf("no data in the map by payload: %s", payload)
 		}
 
-		if !reflect.DeepEqual(records[i].Metadata, pr.Metadata) {
-			return fmt.Errorf("expected metadata \"%+v\", got \"%+v\"", pr.Metadata, records[i].Metadata)
+		if records[i].Operation != sdk.OperationCreate {
+			return fmt.Errorf("expected operation \"%s\", got \"%s\"",
+				sdk.OperationCreate.String(), records[i].Operation.String())
 		}
 
-		if !bytes.Equal(records[i].Payload.Bytes(), pr.Payload.Bytes()) {
+		createdAt, err := records[i].Metadata.GetCreatedAt()
+		if err != nil {
+			return fmt.Errorf("get actual created at from metadata: %s", err)
+		}
+
+		if createdAt.IsZero() {
+			return errors.New("actual created at from metadata is zero")
+		}
+
+		if records[i].Metadata[metadataKey] != pr.Metadata[metadataKey] {
+			return fmt.Errorf("expected metadata \"%s\", got \"%s\"",
+				pr.Metadata[metadataKey], records[i].Metadata[metadataKey])
+		}
+
+		if !bytes.Equal(records[i].Payload.After.Bytes(), pr.Payload.After.Bytes()) {
 			return fmt.Errorf("expected payload \"%s\", got \"%s\"",
-				string(pr.Payload.Bytes()), string(records[i].Payload.Bytes()))
+				string(pr.Payload.After.Bytes()), string(records[i].Payload.After.Bytes()))
 		}
 	}
 

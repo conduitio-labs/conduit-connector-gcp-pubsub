@@ -23,6 +23,6 @@ import (
 // Connector represents a sdk.Connector of GCP Pub/Sub.
 var Connector = sdk.Connector{
 	NewSpecification: Specification,
-	NewSource:        source.New,
-	NewDestination:   destination.New,
+	NewSource:        source.NewSource,
+	NewDestination:   destination.NewDestination,
 }

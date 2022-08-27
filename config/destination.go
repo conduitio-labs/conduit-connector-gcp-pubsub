@@ -15,10 +15,6 @@
 package config
 
 import (
-	"strconv"
-	"time"
-
-	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 )
@@ -29,14 +25,6 @@ type Destination struct {
 
 	// TopicID is the configuration of the topic id for the publisher client.
 	TopicID string `validate:"required,object_name"`
-
-	// BatchSize is the configuration of the batch size for the publisher client.
-	// It is the size of the batch of messages, on completing which the batch of messages will be published.
-	BatchSize int `validate:"gte=1,lte=1000,omitempty"`
-
-	// BatchDelay is the configuration of the batch delay for the publisher client.
-	// It is the time delay, after which the batch of messages will be published.
-	BatchDelay time.Duration `validate:"gte=1ms,lte=1s,omitempty"`
 }
 
 // ParseDestination parses destination configuration into a configuration Destination struct.
@@ -47,28 +35,8 @@ func ParseDestination(cfg map[string]string) (Destination, error) {
 	}
 
 	destinationConfig := Destination{
-		General:    config,
-		TopicID:    cfg[models.ConfigTopicID],
-		BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
-		BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
-	}
-
-	if cfg[models.ConfigBatchSize] != "" {
-		batchSize, err := strconv.Atoi(cfg[models.ConfigBatchSize])
-		if err != nil {
-			return Destination{}, validator.InvalidIntegerTypeErr(models.ConfigBatchSize)
-		}
-
-		destinationConfig.BatchSize = batchSize
-	}
-
-	if cfg[models.ConfigBatchDelay] != "" {
-		batchDelay, err := time.ParseDuration(cfg[models.ConfigBatchDelay])
-		if err != nil {
-			return Destination{}, validator.InvalidTimeDurationTypeErr(models.ConfigBatchDelay)
-		}
-
-		destinationConfig.BatchDelay = batchDelay
+		General: config,
+		TopicID: cfg[models.ConfigTopicID],
 	}
 
 	err = validator.Validate(destinationConfig)

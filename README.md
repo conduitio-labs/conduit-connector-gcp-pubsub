@@ -76,24 +76,20 @@ A destination connector represents an **asynchronous** writes to the Pub/Sub or 
 
 `Open` initializes the client.
 
-`WriteAsync` publishes the record to the topic asynchronously. Messages are batched and sent according to `batchSize` and `batchDelay` parameters in the configuration settings.
-
-`Flush` does nothing, because the system does not cache messages before sending them.
+`Write` publishes records to the topic.
 
 `Teardown` cancels the context, sends all remaining published messages, and releases the client.
 
 #### Configuration
 The user can get the authorization data from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
 
-| name          | description                                                                                                               | required | example                                                                        |
-|---------------|---------------------------------------------------------------------------------------------------------------------------|----------|--------------------------------------------------------------------------------|
-| `privateKey`  | private key to auth in a client                                                                                           | true     | -----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG\n-----END PRIVATE KEY-----\n |
-| `clientEmail` | client email to auth in a client                                                                                          | true     | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
-| `projectId`   | project id to auth in a client                                                                                            | true     | conduit-pubsub                                                                 |
-| `topicId`     | topic name to push messages                                                                                               | true     | conduit-topic                                                                  |
-| `batchSize`   | the size of the batch of messages, on completing which the batch of messages will be published (for Pub/Sub service only) | false    | 10                                                                             |
-| `batchDelay`  | the time delay, after which the batch of messages will be published (for Pub/Sub service only)                            | false    | 100ms                                                                          |
-| `location`    | cloud region or zone where the topic resides (for Pub/Sub Lite service only)                                              | false    | europe-central2-a                                                              |
+| name          | description                                                                   | required | example                                                                        |
+|---------------|-------------------------------------------------------------------------------|----------|--------------------------------------------------------------------------------|
+| `privateKey`  | private key to auth in a client                                               | true     | -----BEGIN PRIVATE KEY-----\nMIIEvAIBADANBgkqhkiG\n-----END PRIVATE KEY-----\n |
+| `clientEmail` | client email to auth in a client                                              | true     | test_user@conduit-pubsub.iam.gserviceaccount.com                               |
+| `projectId`   | project id to auth in a client                                                | true     | conduit-pubsub                                                                 |
+| `topicId`     | topic name to push messages                                                   | true     | conduit-topic                                                                  |
+| `location`    | cloud region or zone where the topic resides (for Pub/Sub Lite service only)  | false    | europe-central2-a                                                              |
 
 ### Quotas and limits
 - [Pub/Sub](https://cloud.google.com/pubsub/quotas)

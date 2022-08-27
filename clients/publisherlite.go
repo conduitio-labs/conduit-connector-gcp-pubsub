@@ -25,78 +25,46 @@ import (
 	"google.golang.org/api/option"
 )
 
-const topicPathFmt = "projects/%s/locations/%s/topics/%s"
-
 // A PublisherLite represents a publisher struct with a GCP Pub/Sub Lite client.
 type PublisherLite struct {
 	publisher *pscompat.PublisherClient
-
-	resultsCh chan *result
-	ctxCancel context.CancelFunc
 }
 
 // NewPublisherLite initializes a new publisher client of GCP Pub/Sub Lite.
-func NewPublisherLite(ctx context.Context, cfg config.Destination, errAckCh chan error) (*PublisherLite, error) {
+func NewPublisherLite(ctx context.Context, cfg config.Destination) (*PublisherLite, error) {
+	const topicPathFmt = "projects/%s/locations/%s/topics/%s"
+
 	credential, err := cfg.Marshal()
 	if err != nil {
 		return nil, err
 	}
 
-	topicPath := fmt.Sprintf(topicPathFmt, cfg.ProjectID, cfg.Location, cfg.TopicID)
-
-	publisher, err := pscompat.NewPublisherClientWithSettings(ctx, topicPath, pscompat.PublishSettings{
-		DelayThreshold: cfg.BatchDelay,
-		CountThreshold: cfg.BatchSize,
-	}, option.WithCredentialsJSON(credential))
+	publisher, err := pscompat.NewPublisherClient(ctx,
+		fmt.Sprintf(topicPathFmt, cfg.ProjectID, cfg.Location, cfg.TopicID), option.WithCredentialsJSON(credential))
 	if err != nil {
 		return nil, fmt.Errorf("create lite publisher client: %w", err)
 	}
 
-	cctx, cancel := context.WithCancel(ctx)
-
-	publisherLite := &PublisherLite{
+	return &PublisherLite{
 		publisher: publisher,
-		resultsCh: make(chan *result, cfg.BatchSize),
-		ctxCancel: cancel,
-	}
-
-	go func() {
-		for {
-			select {
-			case <-cctx.Done():
-				return
-			case res := <-publisherLite.resultsCh:
-				// blocks until the Publish call completes
-				_, err := res.publishResult.Get(ctx)
-
-				err = res.ackFunc(err)
-				if err != nil {
-					errAckCh <- fmt.Errorf("failed to call ackFunc: %w", err)
-				}
-			}
-		}
-	}()
-
-	return publisherLite, nil
+	}, nil
 }
 
 // Publish publishes a record to the GCP Pub/Sub Lite topic.
-func (pl *PublisherLite) Publish(ctx context.Context, record sdk.Record, ackFunc sdk.AckFunc) {
-	res := pl.publisher.Publish(ctx, &pubsub.Message{
-		Data:       record.Payload.Bytes(),
+func (pl *PublisherLite) Publish(ctx context.Context, record sdk.Record) error {
+	_, err := pl.publisher.Publish(ctx, &pubsub.Message{
+		Data:       record.Payload.After.Bytes(),
 		Attributes: record.Metadata,
-	})
-
-	pl.resultsCh <- &result{
-		publishResult: res,
-		ackFunc:       ackFunc,
+	}).Get(ctx)
+	if err != nil {
+		return fmt.Errorf("publish message: %w", err)
 	}
+
+	return nil
 }
 
-// Stop cancels the context, stops remaining published messages,
-// and releases the GCP Pub/Sub Lite client.
+// Stop sends all remaining published messages and closes publish streams.
 func (pl *PublisherLite) Stop() error {
-	pl.ctxCancel()
 	pl.publisher.Stop()
 
 	return nil
