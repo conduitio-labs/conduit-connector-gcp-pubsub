@@ -129,17 +129,7 @@ func (s *subscriber) Ack(ctx context.Context) error {
 
 // Stop calls stop method and releases the GCP Pub/Sub client.
 func (s *Subscriber) Stop() error {
-	err := s.stop()
-	if err != nil {
-		errPubSub := s.pubSub.close()
-		if errPubSub != nil {
-			err = multierr.Append(err, errPubSub)
-		}
-
-		return err
-	}
-
-	return s.pubSub.close()
+	return multierr.Append(s.stop(), s.pubSub.close())
 }
 
 // stop cancels the context to stop the GCP receiver,
