@@ -23,11 +23,13 @@ import (
 )
 
 func TestParseDestination(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name        string
-		in          map[string]string
-		want        Destination
-		expectedErr error
+		name string
+		in   map[string]string
+		want Destination
+		err  error
 	}{
 		{
 			name: "valid config with only required fields",
@@ -54,7 +56,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "to",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id is too big",
@@ -66,7 +68,7 @@ func TestParseDestination(t *testing.T) {
 					"NCadTgrbUJKY6Lb6ARzyOY3bI3W6YjadDLTl47DIqA7zjYYQNIud9PHXgA0v3NVlk2AVLaziUwylawemiUJOee68ULPg" +
 					"GyBgoCIMAB7ukAgjN0fhGPeYART2yojioOp3w9mBPdklk7OY8rJQFCy5ii70byyHFqT3JG00kJTPzdPPdt53",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id does not start with a letter",
@@ -76,7 +78,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "1-test-top*",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id has unsupported characters",
@@ -86,7 +88,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "test-top*",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id starts with goog",
@@ -96,7 +98,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "goog-test-topic",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id starts with Goog",
@@ -106,7 +108,7 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "Goog-test-topic",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
 			name: "topic id starts with gooG",
@@ -116,22 +118,26 @@ func TestParseDestination(t *testing.T) {
 				models.ConfigProjectID:   "test-pubsub",
 				models.ConfigTopicID:     "gooG-test-topic",
 			},
-			expectedErr: validator.InvalidNameErr(models.ConfigTopicID),
+			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := ParseDestination(tt.in)
 			if err != nil {
-				if tt.expectedErr == nil {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
+				if tt.err == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.err != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr.Error() {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
+				if err.Error() != tt.err.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.err.Error(), err.Error())
 
 					return
 				}

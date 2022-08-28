@@ -29,13 +29,15 @@ import (
 )
 
 func TestDestination_Configure(t *testing.T) {
+	t.Parallel()
+
 	dest := Destination{}
 
 	tests := []struct {
-		name        string
-		in          map[string]string
-		want        Destination
-		expectedErr error
+		name string
+		in   map[string]string
+		want Destination
+		err  error
 	}{
 		{
 			name: "valid config with only required fields",
@@ -63,22 +65,26 @@ func TestDestination_Configure(t *testing.T) {
 				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
 				models.ConfigProjectID:   "pubsub-test",
 			},
-			expectedErr: validator.RequiredErr(models.ConfigTopicID),
+			err: validator.RequiredErr(models.ConfigTopicID),
 		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			err := dest.Configure(context.Background(), tt.in)
 			if err != nil {
-				if tt.expectedErr == nil {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
+				if tt.err == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.err != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr.Error() {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
+				if err.Error() != tt.err.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.err.Error(), err.Error())
 
 					return
 				}
