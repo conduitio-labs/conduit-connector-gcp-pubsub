@@ -26,229 +26,88 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/matryer/is"
 	"google.golang.org/api/option"
 )
 
 const (
 	payload = "Hello, 世界"
-
-	topicFmt           = "destination-test-topic-%d"
-	topicPathFmt       = "projects/%s/locations/%s/topics/%s"
-	reservationPathFmt = "projects/%s/locations/%s/reservations/reservation-%d"
 )
 
-func TestDestination_Write(t *testing.T) {
-	var cfg = prepareConfig(t)
+func TestDestination_WriteSuccess(t *testing.T) {
+	var (
+		ctx, cancel = context.WithCancel(context.Background())
+		dest        = NewDestination()
+		cfg         = prepareConfig(t)
+		is          = is.New(t)
+	)
 
-	credential, err := getCredential(cfg)
-	if err != nil {
-		t.Error(err)
+	prepareTest(t, is, cfg)
+
+	err := dest.Configure(ctx, cfg)
+	is.NoErr(err)
+
+	err = dest.Open(ctx)
+	is.NoErr(err)
+
+	records := []sdk.Record{
+		{
+			Payload: sdk.Change{After: sdk.RawData(payload)},
+		},
 	}
 
-	if err = prepareResources(cfg, credential); err != nil {
-		t.Errorf("create topic: %s", err.Error())
-	}
+	n := 0
+	n, err = dest.Write(ctx, records)
+	is.NoErr(err)
+	is.Equal(n, len(records))
 
-	t.Cleanup(func() {
-		if err = cleanupResources(cfg, credential); err != nil {
-			t.Errorf("failed to delete topic: %s", err.Error())
-		}
-	})
+	cancel()
 
-	t.Run("success case", func(t *testing.T) {
-		var (
-			ctx, cancel = context.WithCancel(context.Background())
-			dest        = NewDestination()
-		)
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		records := []sdk.Record{
-			{
-				Payload: sdk.Change{After: sdk.RawData(payload)},
-			},
-		}
-
-		n := 0
-		n, err = dest.Write(ctx, records)
-		if err != nil {
-			t.Errorf("write: %s", err.Error())
-		}
-
-		if n != len(records) {
-			t.Errorf("the number of written records: got %d, expected %d", n, len(records))
-		}
-
-		cancel()
-
-		err = dest.Teardown(context.Background())
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
-
-	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		const errMsgSizeLimit = "publish message: item size exceeds bundle byte limit"
-
-		var (
-			ctx, cancel = context.WithCancel(context.Background())
-			dest        = NewDestination()
-		)
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		// make the payload 10 Mb, so that the message sent with the payload is larger
-		p := make([]byte, 10*1024*1024)
-		for i := range p {
-			p[i] = '!'
-		}
-
-		records := []sdk.Record{{
-			Payload: sdk.Change{After: sdk.RawData(p)},
-		}}
-
-		n := 0
-		n, err = dest.Write(ctx, records)
-		if err.Error() != errMsgSizeLimit {
-			t.Errorf("got: \"%s\", expected: \"%s\"", err.Error(), errMsgSizeLimit)
-		}
-
-		if n != 0 {
-			t.Errorf("the number of written records: got %d, expected 0", n)
-		}
-
-		cancel()
-
-		err = dest.Teardown(context.Background())
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
+	err = dest.Teardown(context.Background())
+	is.NoErr(err)
 }
 
-func TestDestination_Write_Lite(t *testing.T) {
-	var cfg = prepareConfigLite(t)
+func TestDestination_WriteFail(t *testing.T) {
+	var (
+		ctx, cancel = context.WithCancel(context.Background())
+		dest        = NewDestination()
+		cfg         = prepareConfig(t)
+		is          = is.New(t)
+	)
 
-	credential, err := getCredential(cfg)
-	if err != nil {
-		t.Error(err)
+	prepareTest(t, is, cfg)
+
+	err := dest.Configure(ctx, cfg)
+	is.NoErr(err)
+
+	err = dest.Open(ctx)
+	is.NoErr(err)
+
+	// make the payload 10 Mb, so that the message sent with the payload is larger
+	// for Lite service it must be more than 3,5 Mb
+	p := make([]byte, 10*1024*1024)
+	for i := range p {
+		p[i] = '!'
 	}
 
-	reservation := fmt.Sprintf(reservationPathFmt,
-		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().UnixNano())
+	records := []sdk.Record{{
+		Payload: sdk.Change{After: sdk.RawData(p)},
+	}}
 
-	if err = prepareResourcesLite(cfg, reservation, credential); err != nil {
-		t.Errorf("create topic: %s", err.Error())
+	n := 0
+	n, err = dest.Write(ctx, records)
+	is.Equal(n, 0)
+	if cfg[models.ConfigLocation] == "" {
+		is.Equal(err.Error(), "publish message: item size exceeds bundle byte limit")
+	} else {
+		is.Equal(err.Error(), "publish message: pubsublite: serialized message size is 10485765 bytes: "+
+			"maximum allowed message size is MaxPublishRequestBytes (3670016)")
 	}
 
-	t.Cleanup(func() {
-		if err = cleanupResourcesLite(cfg, reservation, credential); err != nil {
-			t.Errorf("failed to delete topic: %s", err.Error())
-		}
-	})
+	cancel()
 
-	t.Run("success case", func(t *testing.T) {
-		var (
-			ctx, cancel = context.WithCancel(context.Background())
-			dest        = NewDestination()
-		)
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		records := []sdk.Record{
-			{
-				Payload: sdk.Change{After: sdk.RawData(payload)},
-			},
-		}
-
-		n := 0
-		n, err = dest.Write(ctx, records)
-		if err != nil {
-			t.Errorf("write: %s", err.Error())
-		}
-
-		if n != len(records) {
-			t.Errorf("the number of written records: got %d, expected %d", n, len(records))
-		}
-
-		cancel()
-
-		err = dest.Teardown(context.Background())
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
-
-	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		const errMsgSizeLimit = "publish message: pubsublite: " +
-			"serialized message size is 3670021 bytes: maximum allowed message size is MaxPublishRequestBytes (3670016)"
-
-		var (
-			ctx, cancel = context.WithCancel(context.Background())
-			dest        = NewDestination()
-		)
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		// make the payload 3.5 Mb, so that the message sent with the payload is larger
-		p := make([]byte, 3.5*1024*1024)
-		for i := range p {
-			p[i] = '!'
-		}
-
-		records := []sdk.Record{{
-			Payload: sdk.Change{After: sdk.RawData(p)},
-		}}
-
-		n := 0
-		n, err = dest.Write(ctx, records)
-		if err.Error() != errMsgSizeLimit {
-			t.Errorf("got: \"%s\", expected: \"%s\"", err.Error(), errMsgSizeLimit)
-		}
-
-		if n != 0 {
-			t.Errorf("the number of written records: got %d, expected 0", n)
-		}
-
-		cancel()
-
-		err = dest.Teardown(context.Background())
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
+	err = dest.Teardown(context.Background())
+	is.NoErr(err)
 }
 
 func prepareConfig(t *testing.T) map[string]string {
@@ -277,22 +136,40 @@ func prepareConfig(t *testing.T) map[string]string {
 		models.ConfigPrivateKey:  privateKey,
 		models.ConfigClientEmail: clientEmail,
 		models.ConfigProjectID:   projectID,
-		models.ConfigTopicID:     fmt.Sprintf(topicFmt, time.Now().Unix()),
+		models.ConfigLocation:    os.Getenv("GCP_PUBSUB_LOCATION"),
+		models.ConfigTopicID:     fmt.Sprintf("destination-test-topic-%d", time.Now().Unix()),
 	}
 }
 
-func prepareConfigLite(t *testing.T) map[string]string {
-	location := os.Getenv("GCP_PUBSUB_LOCATION")
-	if location == "" {
-		t.Skip("GCP_PUBSUB_LOCATION env var must be set")
+func prepareTest(t *testing.T, is *is.I, cfg map[string]string) {
+	credential, err := getCredential(cfg)
+	is.NoErr(err)
 
-		return nil
+	if cfg[models.ConfigLocation] == "" {
+		err = prepareResources(cfg, credential)
+		is.NoErr(err)
+
+		t.Cleanup(func() {
+			err = cleanupResources(cfg, credential)
+			is.NoErr(err)
+		})
+
+		return
 	}
 
-	cfg := prepareConfig(t)
-	cfg[models.ConfigLocation] = location
+	reservation := fmt.Sprintf("projects/%s/locations/%s/reservations/reservation-%d",
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().Unix())
 
-	return cfg
+	topicPath := fmt.Sprintf("projects/%s/locations/%s/topics/%s",
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID])
+
+	err = prepareResourcesLite(cfg, reservation, topicPath, credential)
+	is.NoErr(err)
+
+	t.Cleanup(func() {
+		err = cleanupResourcesLite(cfg, reservation, topicPath, credential)
+		is.NoErr(err)
+	})
 }
 
 func getCredential(src map[string]string) ([]byte, error) {
@@ -337,7 +214,11 @@ func cleanupResources(cfg map[string]string, credential []byte) error {
 	return nil
 }
 
-func prepareResourcesLite(cfg map[string]string, reservation string, credential []byte) error {
+func prepareResourcesLite(
+	cfg map[string]string,
+	reservation, topicPath string,
+	credential []byte,
+) error {
 	const gib = 1 << 30
 
 	var ctx = context.Background()
@@ -359,8 +240,7 @@ func prepareResourcesLite(cfg map[string]string, reservation string, credential 
 	}
 
 	topicConfig := pubsublite.TopicConfig{
-		Name: fmt.Sprintf(topicPathFmt,
-			cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID]),
+		Name:                       topicPath,
 		PartitionCount:             1,
 		PublishCapacityMiBPerSec:   4,
 		SubscribeCapacityMiBPerSec: 4,
@@ -377,7 +257,11 @@ func prepareResourcesLite(cfg map[string]string, reservation string, credential 
 	return nil
 }
 
-func cleanupResourcesLite(cfg map[string]string, reservation string, credential []byte) error {
+func cleanupResourcesLite(
+	cfg map[string]string,
+	reservation, topicPath string,
+	credential []byte,
+) error {
 	var ctx = context.Background()
 
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
@@ -386,8 +270,7 @@ func cleanupResourcesLite(cfg map[string]string, reservation string, credential 
 	}
 	defer admin.Close()
 
-	err = admin.DeleteTopic(ctx, fmt.Sprintf(topicPathFmt,
-		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID]))
+	err = admin.DeleteTopic(ctx, topicPath)
 	if err != nil {
 		return fmt.Errorf("delete topic: %w", err)
 	}
