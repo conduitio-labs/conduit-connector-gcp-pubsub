@@ -17,12 +17,9 @@ package source
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
-	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source/mock"
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -30,98 +27,43 @@ import (
 	"github.com/matryer/is"
 )
 
-func TestSource_Configure(t *testing.T) {
-	src := Source{}
+func TestSource_ConfigureSuccess(t *testing.T) {
+	t.Parallel()
 
-	tests := []struct {
-		name        string
-		in          map[string]string
-		want        Source
-		expectedErr error
-	}{
-		{
-			name: "valid config",
-			in: map[string]string{
-				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:      "pubsub-test",
-				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			want: Source{
-				cfg: config.Source{
-					General: config.General{
-						PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-						ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-						ProjectID:   "pubsub-test",
-					},
-					SubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-				},
-			},
+	is := is.New(t)
+
+	s := Source{}
+
+	err := s.Configure(context.Background(), map[string]string{
+		models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
+		models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
+		models.ConfigProjectID:      "pubsub-test",
+		models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
+	})
+	is.NoErr(err)
+	is.Equal(s.cfg, config.Source{
+		General: config.General{
+			PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
+			ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
+			ProjectID:   "pubsub-test",
 		},
-		{
-			name: "private key is empty",
-			in: map[string]string{
-				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:      "pubsub-test",
-				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigPrivateKey),
-		},
-		{
-			name: "client email is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigProjectID:      "pubsub-test",
-				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigClientEmail),
-		},
-		{
-			name: "project id is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigProjectID),
-		},
-		{
-			name: "subscription id is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:   "pubsub-test",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigSubscriptionID),
-		},
-	}
+		SubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
+	})
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := src.Configure(context.Background(), tt.in)
-			if err != nil {
-				if tt.expectedErr == nil {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
+func TestSource_ConfigureFail(t *testing.T) {
+	t.Parallel()
 
-					return
-				}
+	is := is.New(t)
 
-				if err.Error() != tt.expectedErr.Error() {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
+	s := Source{}
 
-					return
-				}
-
-				return
-			}
-
-			if !reflect.DeepEqual(src.cfg, tt.want.cfg) {
-				t.Errorf("parse = %v, want %v", src.cfg, tt.want.cfg)
-
-				return
-			}
-		})
-	}
+	err := s.Configure(context.Background(), map[string]string{
+		models.ConfigClientEmail:    "test@pubsub-test.iam.gserviceaccount.com",
+		models.ConfigProjectID:      "pubsub-test",
+		models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
+	})
+	is.Equal(err != nil, true)
 }
 
 func TestSource_ReadSuccess(t *testing.T) {
@@ -136,10 +78,9 @@ func TestSource_ReadSuccess(t *testing.T) {
 	st["key"] = "value"
 
 	record := sdk.Record{
-		Position:  sdk.Position(`{"last_processed_element_value": 1}`),
-		Metadata:  nil,
-		CreatedAt: time.Time{},
-		Payload:   st,
+		Position: sdk.Position(`{"last_processed_element_value": 1}`),
+		Metadata: nil,
+		Payload:  sdk.Change{After: st},
 	}
 
 	sub := mock.NewMockSubscriber(ctrl)

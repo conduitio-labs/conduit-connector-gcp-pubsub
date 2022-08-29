@@ -17,109 +17,52 @@ package destination
 import (
 	"context"
 	"errors"
-	"reflect"
 	"testing"
-	"time"
 
-	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
-	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination/mock"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	"github.com/golang/mock/gomock"
 	"github.com/matryer/is"
 )
 
-func TestDestination_Configure(t *testing.T) {
-	dest := Destination{}
+func TestDestination_ConfigureSuccess(t *testing.T) {
+	t.Parallel()
 
-	tests := []struct {
-		name        string
-		in          map[string]string
-		want        Destination
-		expectedErr error
-	}{
-		{
-			name: "valid config with only required fields",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:   "pubsub-test",
-				models.ConfigTopicID:     "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-			},
-			want: Destination{
-				cfg: config.Destination{
-					General: config.General{
-						PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-						ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-						ProjectID:   "pubsub-test",
-					},
-					TopicID:    "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-					BatchSize:  pubsub.DefaultPublishSettings.CountThreshold,
-					BatchDelay: pubsub.DefaultPublishSettings.DelayThreshold,
-				},
-			},
+	is := is.New(t)
+
+	d := Destination{}
+
+	err := d.Configure(context.Background(), map[string]string{
+		models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
+		models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
+		models.ConfigProjectID:   "pubsub-test",
+		models.ConfigTopicID:     "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
+	})
+	is.NoErr(err)
+	is.Equal(d.cfg, config.Destination{
+		General: config.General{
+			PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
+			ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
+			ProjectID:   "pubsub-test",
 		},
-		{
-			name: "valid config with all fields filled in",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:   "pubsub-test",
-				models.ConfigTopicID:     "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-				models.ConfigBatchSize:   "10",
-				models.ConfigBatchDelay:  "100ms",
-			},
-			want: Destination{
-				cfg: config.Destination{
-					General: config.General{
-						PrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-						ClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-						ProjectID:   "pubsub-test",
-					},
-					TopicID:    "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
-					BatchSize:  10,
-					BatchDelay: 100 * time.Millisecond,
-				},
-			},
-		},
-		{
-			name: "topic id is empty",
-			in: map[string]string{
-				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
-				models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
-				models.ConfigProjectID:   "pubsub-test",
-			},
-			expectedErr: validator.RequiredErr(models.ConfigTopicID),
-		},
-	}
+		TopicID: "conduit-topic-b595b388-7a97-4837-a180-380640d9c43f",
+	})
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := dest.Configure(context.Background(), tt.in)
-			if err != nil {
-				if tt.expectedErr == nil {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
+func TestDestination_ConfigureFail(t *testing.T) {
+	t.Parallel()
 
-					return
-				}
+	is := is.New(t)
 
-				if err.Error() != tt.expectedErr.Error() {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
+	d := Destination{}
 
-					return
-				}
-
-				return
-			}
-
-			if !reflect.DeepEqual(dest.cfg, tt.want.cfg) {
-				t.Errorf("parse = %v, want %v", dest.cfg, tt.want.cfg)
-
-				return
-			}
-		})
-	}
+	err := d.Configure(context.Background(), map[string]string{
+		models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMII\n-----END PRIVATE KEY-----\n",
+		models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
+		models.ConfigProjectID:   "pubsub-test",
+	})
+	is.Equal(err != nil, true)
 }
 
 func TestDestination_TeardownSuccess(t *testing.T) {

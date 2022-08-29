@@ -24,11 +24,13 @@ import (
 )
 
 func TestParseGeneral(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
-		name        string
-		in          map[string]string
-		want        General
-		expectedErr error
+		name string
+		in   map[string]string
+		want General
+		err  error
 	}{
 		{
 			name: "valid config",
@@ -65,7 +67,7 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigClientEmail: "test@test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
 			},
-			expectedErr: validator.RequiredErr(models.ConfigPrivateKey),
+			err: validator.RequiredErr(models.ConfigPrivateKey),
 		},
 		{
 			name: "client email is required",
@@ -73,7 +75,7 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigProjectID:  "test-pubsub",
 			},
-			expectedErr: validator.RequiredErr(models.ConfigClientEmail),
+			err: validator.RequiredErr(models.ConfigClientEmail),
 		},
 		{
 			name: "project id is required",
@@ -81,14 +83,14 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",
 			},
-			expectedErr: validator.RequiredErr(models.ConfigProjectID),
+			err: validator.RequiredErr(models.ConfigProjectID),
 		},
 		{
 			name: "a couple fields are empty (a client email and a project id)",
 			in: map[string]string{
 				models.ConfigPrivateKey: "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 			},
-			expectedErr: multierr.Combine(validator.RequiredErr(models.ConfigClientEmail),
+			err: multierr.Combine(validator.RequiredErr(models.ConfigClientEmail),
 				validator.RequiredErr(models.ConfigProjectID)),
 		},
 		{
@@ -98,22 +100,26 @@ func TestParseGeneral(t *testing.T) {
 				models.ConfigClientEmail: "test-pubsub.com",
 				models.ConfigProjectID:   "test-pubsub",
 			},
-			expectedErr: validator.InvalidEmailErr(models.ConfigClientEmail),
+			err: validator.InvalidEmailErr(models.ConfigClientEmail),
 		},
 	}
 
 	for _, tt := range tests {
+		tt := tt
+
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := parseGeneral(tt.in)
 			if err != nil {
-				if tt.expectedErr == nil {
-					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.expectedErr != nil)
+				if tt.err == nil {
+					t.Errorf("parse error = \"%s\", wantErr %t", err.Error(), tt.err != nil)
 
 					return
 				}
 
-				if err.Error() != tt.expectedErr.Error() {
-					t.Errorf("expected error \"%s\", got \"%s\"", tt.expectedErr.Error(), err.Error())
+				if err.Error() != tt.err.Error() {
+					t.Errorf("expected error \"%s\", got \"%s\"", tt.err.Error(), err.Error())
 
 					return
 				}

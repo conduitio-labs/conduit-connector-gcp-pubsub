@@ -19,12 +19,13 @@ import (
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
 // A Publisher represents a publisher interface.
 type Publisher interface {
-	Publish(context.Context, sdk.Record, sdk.AckFunc)
+	Publish(context.Context, sdk.Record) error
 	Stop() error
 }
 
@@ -33,13 +34,41 @@ type Destination struct {
 	sdk.UnimplementedDestination
 	cfg       config.Destination
 	publisher Publisher
-	errAckCh  chan error
 }
 
-// New initialises a new Destination.
-func New() sdk.Destination {
-	return &Destination{
-		errAckCh: make(chan error),
+// NewDestination initialises a new Destination.
+func NewDestination() sdk.Destination {
+	return sdk.DestinationWithMiddleware(&Destination{}, sdk.DefaultDestinationMiddleware()...)
+}
+
+// Parameters returns a map of named Parameters that describe how to configure the Source.
+func (d *Destination) Parameters() map[string]sdk.Parameter {
+	return map[string]sdk.Parameter{
+		models.ConfigPrivateKey: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub private key.",
+		},
+		models.ConfigClientEmail: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub client email key.",
+		},
+		models.ConfigProjectID: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub project id key.",
+		},
+		models.ConfigTopicID: {
+			Default:     "",
+			Required:    true,
+			Description: "GCP Pub/Sub topic id key.",
+		},
+		models.ConfigLocation: {
+			Default:     "",
+			Required:    false,
+			Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
+		},
 	}
 }
 
@@ -58,7 +87,7 @@ func (d *Destination) Configure(_ context.Context, cfgRaw map[string]string) err
 // Open initializes a publisher client.
 func (d *Destination) Open(ctx context.Context) (err error) {
 	if d.cfg.Location == "" {
-		d.publisher, err = clients.NewPublisher(ctx, d.cfg, d.errAckCh)
+		d.publisher, err = clients.NewPublisher(ctx, d.cfg)
 		if err != nil {
 			return err
 		}
@@ -66,7 +95,7 @@ func (d *Destination) Open(ctx context.Context) (err error) {
 		return nil
 	}
 
-	d.publisher, err = clients.NewPublisherLite(ctx, d.cfg, d.errAckCh)
+	d.publisher, err = clients.NewPublisherLite(ctx, d.cfg)
 	if err != nil {
 		return err
 	}
@@ -74,23 +103,16 @@ func (d *Destination) Open(ctx context.Context) (err error) {
 	return nil
 }
 
-// WriteAsync writes a record into a Destination.
-func (d *Destination) WriteAsync(ctx context.Context, record sdk.Record, ackFunc sdk.AckFunc) error {
-	select {
-	case err := <-d.errAckCh:
-		return err
-	default:
-		d.publisher.Publish(ctx, record, ackFunc)
+// Write writes records into a Destination.
+func (d *Destination) Write(ctx context.Context, records []sdk.Record) (int, error) {
+	for i := range records {
+		err := d.publisher.Publish(ctx, records[i])
+		if err != nil {
+			return i, err
+		}
 	}
 
-	return nil
-}
-
-// Flush does nothing.
-func (d *Destination) Flush(ctx context.Context) error {
-	sdk.Logger(ctx).Info().Msg("got flush")
-
-	return nil
+	return len(records), nil
 }
 
 // Teardown gracefully closes connections.
@@ -98,12 +120,7 @@ func (d *Destination) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 
 	if d.publisher != nil {
-		select {
-		case err := <-d.errAckCh:
-			return err
-		default:
-			return d.publisher.Stop()
-		}
+		return d.publisher.Stop()
 	}
 
 	return nil

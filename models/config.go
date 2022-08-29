@@ -24,20 +24,14 @@ const (
 	// ConfigProjectID is the configuration name of the project id for the GCP Pub/Sub client.
 	ConfigProjectID = "projectId"
 
+	// ConfigLocation is the configuration name of the Cloud Region or Zone where the topic resides.
+	ConfigLocation = "location"
+
 	// ConfigSubscriptionID is the configuration name of the subscription id for the subscriber client.
 	ConfigSubscriptionID = "subscriptionId"
 
 	// ConfigTopicID is the configuration name of the topic id for the publisher client.
 	ConfigTopicID = "topicId"
-
-	// ConfigBatchSize is the configuration name of the batch size for the publisher client.
-	ConfigBatchSize = "batchSize"
-
-	// ConfigBatchDelay is the configuration name of the batch delay for the publisher client.
-	ConfigBatchDelay = "batchDelay"
-
-	// ConfigLocation is the configuration name of the Cloud Region or Zone where the topic resides.
-	ConfigLocation = "location"
 )
 
 // ConfigKeyName returns a configuration key name by struct field.
@@ -49,7 +43,5 @@ func ConfigKeyName(fieldName string) string {
 		"Location":       ConfigLocation,
 		"SubscriptionID": ConfigSubscriptionID,
 		"TopicID":        ConfigTopicID,
-		"BatchSize":      ConfigBatchSize,
-		"BatchDelay":     ConfigBatchDelay,
 	}[fieldName]
 }

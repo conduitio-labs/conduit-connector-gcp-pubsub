@@ -26,220 +26,88 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/matryer/is"
 	"google.golang.org/api/option"
 )
 
 const (
 	payload = "Hello, 世界"
-
-	topicFmt           = "destination-test-topic-%d"
-	topicPathFmt       = "projects/%s/locations/%s/topics/%s"
-	reservationPathFmt = "projects/%s/locations/%s/reservations/reservation-%d"
 )
 
-func TestDestination_WriteAsync(t *testing.T) {
+func TestDestination_WriteSuccess(t *testing.T) {
 	var (
-		ctx = context.Background()
-		cfg = prepareConfig(t)
+		ctx, cancel = context.WithCancel(context.Background())
+		dest        = NewDestination()
+		cfg         = prepareConfig(t)
+		is          = is.New(t)
 	)
 
-	credential, err := getCredential(cfg)
-	if err != nil {
-		t.Error(err)
+	prepareTest(t, is, cfg)
+
+	err := dest.Configure(ctx, cfg)
+	is.NoErr(err)
+
+	err = dest.Open(ctx)
+	is.NoErr(err)
+
+	records := []sdk.Record{
+		{
+			Payload: sdk.Change{After: sdk.RawData(payload)},
+		},
 	}
 
-	if err = prepareResources(ctx, cfg, credential); err != nil {
-		t.Errorf("create topic: %s", err.Error())
-	}
+	n := 0
+	n, err = dest.Write(ctx, records)
+	is.NoErr(err)
+	is.Equal(n, len(records))
 
-	t.Cleanup(func() {
-		if err = cleanupResources(ctx, cfg, credential); err != nil {
-			t.Errorf("failed to delete topic: %s", err.Error())
-		}
-	})
+	cancel()
 
-	t.Run("success case", func(t *testing.T) {
-		dest := New()
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(payload),
-		}, func(ackErr error) error {
-			if ackErr != nil {
-				t.Errorf("ack func: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
-		}
-
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
-		}
-
-		err = dest.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
-
-	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		dest := New()
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		p := make([]byte, 10*1024*1024+1)
-		for i := range p {
-			p[i] = '!'
-		}
-
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(p),
-		}, func(ackErr error) error {
-			if ackErr == nil {
-				t.Error("ack funk must return an error")
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
-		}
-
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
-		}
-
-		err = dest.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
+	err = dest.Teardown(context.Background())
+	is.NoErr(err)
 }
 
-func TestDestination_WriteAsync_Lite(t *testing.T) {
+func TestDestination_WriteFail(t *testing.T) {
 	var (
-		ctx = context.Background()
-		cfg = prepareConfigLite(t)
+		ctx, cancel = context.WithCancel(context.Background())
+		dest        = NewDestination()
+		cfg         = prepareConfig(t)
+		is          = is.New(t)
 	)
 
-	credential, err := getCredential(cfg)
-	if err != nil {
-		t.Error(err)
+	prepareTest(t, is, cfg)
+
+	err := dest.Configure(ctx, cfg)
+	is.NoErr(err)
+
+	err = dest.Open(ctx)
+	is.NoErr(err)
+
+	// make the payload 10 Mb, so that the message sent with the payload is larger
+	// for Lite service it must be more than 3,5 Mb
+	p := make([]byte, 10*1024*1024)
+	for i := range p {
+		p[i] = '!'
 	}
 
-	reservation := fmt.Sprintf(reservationPathFmt,
-		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().UnixNano())
+	records := []sdk.Record{{
+		Payload: sdk.Change{After: sdk.RawData(p)},
+	}}
 
-	if err = prepareResourcesLite(ctx, cfg, reservation, credential); err != nil {
-		t.Errorf("create topic: %s", err.Error())
+	n := 0
+	n, err = dest.Write(ctx, records)
+	is.Equal(n, 0)
+	if cfg[models.ConfigLocation] == "" {
+		is.Equal(err.Error(), "publish message: item size exceeds bundle byte limit")
+	} else {
+		is.Equal(err.Error(), "publish message: pubsublite: serialized message size is 10485765 bytes: "+
+			"maximum allowed message size is MaxPublishRequestBytes (3670016)")
 	}
 
-	t.Cleanup(func() {
-		if err = cleanupResourcesLite(ctx, cfg, reservation, credential); err != nil {
-			t.Errorf("failed to delete topic: %s", err.Error())
-		}
-	})
+	cancel()
 
-	t.Run("success case", func(t *testing.T) {
-		dest := New()
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(payload),
-		}, func(ackErr error) error {
-			if ackErr != nil {
-				t.Errorf("ack func: %s", ackErr.Error())
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
-		}
-
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
-		}
-
-		err = dest.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
-
-	t.Run("item size exceeds bundle byte limit", func(t *testing.T) {
-		dest := New()
-
-		err = dest.Configure(ctx, cfg)
-		if err != nil {
-			t.Errorf("configure: %s", err.Error())
-		}
-
-		err = dest.Open(ctx)
-		if err != nil {
-			t.Errorf("open: %s", err.Error())
-		}
-
-		p := make([]byte, 3.5*1024*1024+1)
-		for i := range p {
-			p[i] = '!'
-		}
-
-		err = dest.WriteAsync(ctx, sdk.Record{
-			Payload: sdk.RawData(p),
-		}, func(ackErr error) error {
-			if ackErr == nil {
-				t.Error("ack funk must return an error")
-			}
-
-			return nil
-		})
-		if err != nil {
-			t.Errorf("write async: %s", err.Error())
-		}
-
-		err = dest.Flush(ctx)
-		if err != nil {
-			t.Errorf("flush: %s", err.Error())
-		}
-
-		err = dest.Teardown(ctx)
-		if err != nil {
-			t.Errorf("teardown: %s", err.Error())
-		}
-	})
+	err = dest.Teardown(context.Background())
+	is.NoErr(err)
 }
 
 func prepareConfig(t *testing.T) map[string]string {
@@ -268,24 +136,40 @@ func prepareConfig(t *testing.T) map[string]string {
 		models.ConfigPrivateKey:  privateKey,
 		models.ConfigClientEmail: clientEmail,
 		models.ConfigProjectID:   projectID,
-		models.ConfigTopicID:     fmt.Sprintf(topicFmt, time.Now().Unix()),
-		models.ConfigBatchSize:   os.Getenv("GCP_PUBSUB_BATCH_SIZE"),
-		models.ConfigBatchDelay:  os.Getenv("GCP_PUBSUB_BATCH_DELAY"),
+		models.ConfigLocation:    os.Getenv("GCP_PUBSUB_LOCATION"),
+		models.ConfigTopicID:     fmt.Sprintf("destination-test-topic-%d", time.Now().Unix()),
 	}
 }
 
-func prepareConfigLite(t *testing.T) map[string]string {
-	location := os.Getenv("GCP_PUBSUB_LOCATION")
-	if location == "" {
-		t.Skip("GCP_PUBSUB_LOCATION env var must be set")
+func prepareTest(t *testing.T, is *is.I, cfg map[string]string) {
+	credential, err := getCredential(cfg)
+	is.NoErr(err)
 
-		return nil
+	if cfg[models.ConfigLocation] == "" {
+		err = prepareResources(cfg, credential)
+		is.NoErr(err)
+
+		t.Cleanup(func() {
+			err = cleanupResources(cfg, credential)
+			is.NoErr(err)
+		})
+
+		return
 	}
 
-	cfg := prepareConfig(t)
-	cfg[models.ConfigLocation] = location
+	reservation := fmt.Sprintf("projects/%s/locations/%s/reservations/reservation-%d",
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], time.Now().Unix())
 
-	return cfg
+	topicPath := fmt.Sprintf("projects/%s/locations/%s/topics/%s",
+		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID])
+
+	err = prepareResourcesLite(cfg, reservation, topicPath, credential)
+	is.NoErr(err)
+
+	t.Cleanup(func() {
+		err = cleanupResourcesLite(cfg, reservation, topicPath, credential)
+		is.NoErr(err)
+	})
 }
 
 func getCredential(src map[string]string) ([]byte, error) {
@@ -296,7 +180,9 @@ func getCredential(src map[string]string) ([]byte, error) {
 	}.Marshal()
 }
 
-func prepareResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+func prepareResources(cfg map[string]string, credential []byte) error {
+	var ctx = context.Background()
+
 	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
@@ -312,7 +198,9 @@ func prepareResources(ctx context.Context, cfg map[string]string, credential []b
 	return nil
 }
 
-func cleanupResources(ctx context.Context, cfg map[string]string, credential []byte) error {
+func cleanupResources(cfg map[string]string, credential []byte) error {
+	var ctx = context.Background()
+
 	client, err := pubsub.NewClient(ctx, cfg[models.ConfigProjectID], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new client: %w", err)
@@ -326,8 +214,14 @@ func cleanupResources(ctx context.Context, cfg map[string]string, credential []b
 	return nil
 }
 
-func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+func prepareResourcesLite(
+	cfg map[string]string,
+	reservation, topicPath string,
+	credential []byte,
+) error {
 	const gib = 1 << 30
+
+	var ctx = context.Background()
 
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
 	if err != nil {
@@ -346,15 +240,13 @@ func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservatio
 	}
 
 	topicConfig := pubsublite.TopicConfig{
-		Name: fmt.Sprintf(topicPathFmt,
-			cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID]),
-		PartitionCount:             1,        // Must be at least 1.
-		PublishCapacityMiBPerSec:   4,        // Must be 4-16 MiB/s.
-		SubscribeCapacityMiBPerSec: 4,        // Must be 4-32 MiB/s.
-		PerPartitionBytes:          30 * gib, // Must be 30 GiB-10 TiB.
+		Name:                       topicPath,
+		PartitionCount:             1,
+		PublishCapacityMiBPerSec:   4,
+		SubscribeCapacityMiBPerSec: 4,
+		PerPartitionBytes:          30 * gib,
 		ThroughputReservation:      reservation,
-		// Retain messages indefinitely as long as there is available storage.
-		RetentionDuration: pubsublite.InfiniteRetention,
+		RetentionDuration:          pubsublite.InfiniteRetention,
 	}
 
 	_, err = admin.CreateTopic(ctx, topicConfig)
@@ -365,15 +257,20 @@ func prepareResourcesLite(ctx context.Context, cfg map[string]string, reservatio
 	return nil
 }
 
-func cleanupResourcesLite(ctx context.Context, cfg map[string]string, reservation string, credential []byte) error {
+func cleanupResourcesLite(
+	cfg map[string]string,
+	reservation, topicPath string,
+	credential []byte,
+) error {
+	var ctx = context.Background()
+
 	admin, err := pubsublite.NewAdminClient(ctx, cfg[models.ConfigLocation], option.WithCredentialsJSON(credential))
 	if err != nil {
 		return fmt.Errorf("new admin: %w", err)
 	}
 	defer admin.Close()
 
-	err = admin.DeleteTopic(ctx, fmt.Sprintf(topicPathFmt,
-		cfg[models.ConfigProjectID], cfg[models.ConfigLocation], cfg[models.ConfigTopicID]))
+	err = admin.DeleteTopic(ctx, topicPath)
 	if err != nil {
 		return fmt.Errorf("delete topic: %w", err)
 	}

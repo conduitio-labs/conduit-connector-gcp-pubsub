@@ -27,74 +27,38 @@ import (
 type Publisher struct {
 	*pubSub
 
-	topic     *pubsub.Topic
-	resultsCh chan *result
-	ctxCancel context.CancelFunc
-
-	ErrAckCh chan error
-}
-
-type result struct {
-	publishResult *pubsub.PublishResult
-	ackFunc       sdk.AckFunc
+	topic *pubsub.Topic
 }
 
 // NewPublisher initializes a new publisher client.
-func NewPublisher(ctx context.Context, cfg config.Destination, errAckCh chan error) (*Publisher, error) {
+func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
 		return nil, err
 	}
 
-	cctx, cancel := context.WithCancel(ctx)
-
-	publisher := &Publisher{
-		pubSub:    ps,
-		topic:     ps.client.Topic(cfg.TopicID),
-		resultsCh: make(chan *result, cfg.BatchSize),
-		ctxCancel: cancel,
-	}
-
-	publisher.topic.PublishSettings.CountThreshold = cfg.BatchSize
-	publisher.topic.PublishSettings.DelayThreshold = cfg.BatchDelay
-
-	go func() {
-		for {
-			select {
-			case <-cctx.Done():
-				return
-			case res := <-publisher.resultsCh:
-				// blocks until the Publish call completes
-				_, err = res.publishResult.Get(ctx)
-
-				err = res.ackFunc(err)
-				if err != nil {
-					errAckCh <- fmt.Errorf("failed to call ackFunc: %w", err)
-				}
-			}
-		}
-	}()
-
-	return publisher, nil
+	return &Publisher{
+		pubSub: ps,
+		topic:  ps.client.Topic(cfg.TopicID),
+	}, nil
 }
 
-// Publish publishes a record to the GCP Pub/Sub topic.
-func (p *Publisher) Publish(ctx context.Context, record sdk.Record, ackFunc sdk.AckFunc) {
-	res := p.topic.Publish(ctx, &pubsub.Message{
-		Data:       record.Payload.Bytes(),
+// Publish publishes records to the GCP Pub/Sub topic.
+func (p *Publisher) Publish(ctx context.Context, record sdk.Record) error {
+	_, err := p.topic.Publish(ctx, &pubsub.Message{
+		Data:       record.Payload.After.Bytes(),
 		Attributes: record.Metadata,
-	})
-
-	p.resultsCh <- &result{
-		publishResult: res,
-		ackFunc:       ackFunc,
+	}).Get(ctx)
+	if err != nil {
+		return fmt.Errorf("publish message: %w", err)
 	}
+
+	return nil
 }
 
-// Stop cancels the context, stops remaining published messages,
-// and releases the GCP Pub/Sub client.
+// Stop sends all remaining published messages and stop goroutines created for handling publishing,
+// and releases any resources held by the client, such as memory and goroutines.
 func (p *Publisher) Stop() error {
-	p.ctxCancel()
 	p.topic.Stop()
 
 	return p.pubSub.close()

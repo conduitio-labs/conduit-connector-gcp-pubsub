@@ -28,18 +28,17 @@ import (
 )
 
 // Subscriber represents a struct with a GCP Pub/Sub client,
-// queues for messages, channels and a function to cancel the context.
+// queues for messages, an error channel.
 type Subscriber struct {
 	*pubSub
 	*subscriber
 }
 
 type subscriber struct {
-	lock      sync.Mutex
-	msgDeque  *deque.Deque[*pubsub.Message]
-	ackDeque  *deque.Deque[*pubsub.Message]
-	errorCh   chan error
-	ctxCancel context.CancelFunc
+	mu       sync.Mutex
+	msgDeque *deque.Deque[*pubsub.Message]
+	ackDeque *deque.Deque[*pubsub.Message]
+	errorCh  chan error
 }
 
 // NewSubscriber initializes a new subscriber client and starts receiving a messages to the queue.
@@ -49,32 +48,28 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 		return nil, err
 	}
 
-	cctx, cancel := context.WithCancel(ctx)
-
 	sub := &Subscriber{
 		pubSub: ps,
 		subscriber: &subscriber{
-			msgDeque:  deque.New[*pubsub.Message](),
-			ackDeque:  deque.New[*pubsub.Message](),
-			errorCh:   make(chan error),
-			ctxCancel: cancel,
+			msgDeque: deque.New[*pubsub.Message](),
+			ackDeque: deque.New[*pubsub.Message](),
+			errorCh:  make(chan error),
 		},
 	}
 
 	go func() {
-		s := sub.pubSub.client.Subscription(cfg.SubscriptionID)
+		err = sub.pubSub.client.Subscription(cfg.SubscriptionID).Receive(ctx,
+			func(_ context.Context, m *pubsub.Message) {
+				sub.mu.Lock()
+				defer sub.mu.Unlock()
 
-		// set MaxExtension less than 0, to not extend the ack deadline for each message
-		s.ReceiveSettings.MaxExtension = -1
-
-		err = s.Receive(cctx, func(_ context.Context, m *pubsub.Message) {
-			sub.lock.Lock()
-			defer sub.lock.Unlock()
-
-			sub.msgDeque.PushBack(m)
-		})
+				sub.msgDeque.PushBack(m)
+			},
+		)
 		if err != nil {
 			sub.errorCh <- fmt.Errorf("subscription receive: %w", err)
+
+			return
 		}
 
 		sub.errorCh <- nil
@@ -91,8 +86,8 @@ func (s *subscriber) Next(ctx context.Context) (sdk.Record, error) {
 	case <-ctx.Done():
 		return sdk.Record{}, ctx.Err()
 	default:
-		s.lock.Lock()
-		defer s.lock.Unlock()
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
 		if s.msgDeque.Len() == 0 {
 			return sdk.Record{}, sdk.ErrBackoffRetry
@@ -102,12 +97,18 @@ func (s *subscriber) Next(ctx context.Context) (sdk.Record, error) {
 
 		s.ackDeque.PushBack(msg)
 
-		return sdk.Record{
-			Position:  sdk.Position(uuid.NewString()),
-			Metadata:  msg.Attributes,
-			CreatedAt: msg.PublishTime,
-			Payload:   sdk.RawData(msg.Data),
-		}, nil
+		metadata := sdk.Metadata{}
+		if len(msg.Attributes) > 0 {
+			metadata = msg.Attributes
+		}
+		metadata.SetCreatedAt(msg.PublishTime)
+
+		return sdk.Util.Source.NewRecordCreate(
+			sdk.Position(uuid.NewString()),
+			metadata,
+			nil,
+			sdk.RawData(msg.Data),
+		), nil
 	}
 }
 
@@ -117,8 +118,8 @@ func (s *subscriber) Ack(ctx context.Context) error {
 	case <-ctx.Done():
 		return ctx.Err()
 	default:
-		s.lock.Lock()
-		defer s.lock.Unlock()
+		s.mu.Lock()
+		defer s.mu.Unlock()
 
 		s.ackDeque.PopFront().Ack()
 
@@ -128,27 +129,15 @@ func (s *subscriber) Ack(ctx context.Context) error {
 
 // Stop calls stop method and releases the GCP Pub/Sub client.
 func (s *Subscriber) Stop() error {
-	err := s.stop()
-	if err != nil {
-		errPubSub := s.pubSub.close()
-		if errPubSub != nil {
-			err = multierr.Append(err, errPubSub)
-		}
-
-		return err
-	}
-
-	return s.pubSub.close()
+	return multierr.Append(s.stop(), s.pubSub.close())
 }
 
 // stop cancels the context to stop the GCP receiver,
 // marks all unread messages the client did not receive them,
 // and waits the GCP receiver will stop.
 func (s *subscriber) stop() error {
-	s.ctxCancel()
-
-	s.lock.Lock()
-	defer s.lock.Unlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 
 	for s.msgDeque.Len() > 0 {
 		s.msgDeque.PopFront().Nack()

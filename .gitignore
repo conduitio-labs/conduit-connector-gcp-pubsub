@@ -1,5 +1,9 @@
-# Intellij
+# IDEs
 .idea
+.vscode
+
+# MacOS
+.DS_Store
 
 # Binary built with `make build`
-/conduit-connector-gcp-pubsub
+conduit-connector-gcp-pubsub

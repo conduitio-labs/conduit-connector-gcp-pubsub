@@ -15,10 +15,6 @@
 package gcppubsub
 
 import (
-	"strconv"
-
-	"cloud.google.com/go/pubsub"
-	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
@@ -31,69 +27,5 @@ func Specification() sdk.Specification {
 			"It provides a source and a destination GCP Pub/Sub connector.",
 		Version: "v0.1.0",
 		Author:  "Meroxa, Inc.",
-		SourceParams: map[string]sdk.Parameter{
-			models.ConfigPrivateKey: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub private key.",
-			},
-			models.ConfigClientEmail: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub client email key.",
-			},
-			models.ConfigProjectID: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub project id key.",
-			},
-			models.ConfigSubscriptionID: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub subscription id key.",
-			},
-			models.ConfigLocation: {
-				Default:     "",
-				Required:    false,
-				Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
-			},
-		},
-		DestinationParams: map[string]sdk.Parameter{
-			models.ConfigPrivateKey: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub private key.",
-			},
-			models.ConfigClientEmail: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub client email key.",
-			},
-			models.ConfigProjectID: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub project id key.",
-			},
-			models.ConfigTopicID: {
-				Default:     "",
-				Required:    true,
-				Description: "GCP Pub/Sub topic id key.",
-			},
-			models.ConfigBatchSize: {
-				Default:     strconv.Itoa(pubsub.DefaultPublishSettings.CountThreshold),
-				Required:    false,
-				Description: "GCP Pub/Sub batch size key.",
-			},
-			models.ConfigBatchDelay: {
-				Default:     pubsub.DefaultPublishSettings.DelayThreshold.String(),
-				Required:    false,
-				Description: "GCP Pub/Sub batch delay key.",
-			},
-			models.ConfigLocation: {
-				Default:     "",
-				Required:    false,
-				Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
-			},
-		},
 	}
 }
