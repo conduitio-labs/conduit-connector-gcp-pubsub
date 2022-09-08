@@ -35,10 +35,15 @@ type Subscriber struct {
 }
 
 type subscriber struct {
-	mu       sync.Mutex
+	// mutex to lock subscriber during queue operation
+	mu sync.Mutex
+
+	// queue to store all messages until they are read
 	msgDeque *deque.Deque[*pubsub.Message]
+	// queue to acknowledge messages
 	ackDeque *deque.Deque[*pubsub.Message]
-	errorCh  chan error
+	// error chanel for the receiver's error
+	errorCh chan error
 }
 
 // NewSubscriber initializes a new subscriber client and starts receiving a messages to the queue.

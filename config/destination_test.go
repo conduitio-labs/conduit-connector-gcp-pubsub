@@ -49,7 +49,7 @@ func TestParseDestination(t *testing.T) {
 			},
 		},
 		{
-			name: "topic id is too small",
+			name: "topic id is too short",
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",
@@ -59,7 +59,7 @@ func TestParseDestination(t *testing.T) {
 			err: validator.InvalidNameErr(models.ConfigTopicID),
 		},
 		{
-			name: "topic id is too big",
+			name: "topic id is too long",
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",

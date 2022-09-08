@@ -49,7 +49,7 @@ func TestParseSource(t *testing.T) {
 			},
 		},
 		{
-			name: "subscription id is too small",
+			name: "subscription id is too short",
 			in: map[string]string{
 				models.ConfigPrivateKey:     "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail:    "test@test-pubsub.com",
@@ -59,7 +59,7 @@ func TestParseSource(t *testing.T) {
 			err: validator.InvalidNameErr(models.ConfigSubscriptionID),
 		},
 		{
-			name: "subscription id is too big",
+			name: "subscription id is too long",
 			in: map[string]string{
 				models.ConfigPrivateKey:  "-----BEGIN PRIVATE KEY-----\nMIIEvAIBADAQEFAASC-----END PRIVATE KEY-----",
 				models.ConfigClientEmail: "test@test-pubsub.com",

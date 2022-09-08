@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source/mock"
 	sdk "github.com/conduitio/conduit-connector-sdk"
@@ -51,7 +52,7 @@ func TestSource_ConfigureSuccess(t *testing.T) {
 	})
 }
 
-func TestSource_ConfigureFail(t *testing.T) {
+func TestSource_ConfigureFailPrivateKeyIsRequired(t *testing.T) {
 	t.Parallel()
 
 	is := is.New(t)
@@ -63,7 +64,7 @@ func TestSource_ConfigureFail(t *testing.T) {
 		models.ConfigProjectID:      "pubsub-test",
 		models.ConfigSubscriptionID: "conduit-subscription-b595b388-7a97-4837-a180-380640d9c43f",
 	})
-	is.Equal(err != nil, true)
+	is.Equal(err, validator.RequiredErr(models.ConfigPrivateKey))
 }
 
 func TestSource_ReadSuccess(t *testing.T) {
@@ -112,7 +113,7 @@ func TestSource_ReadFail(t *testing.T) {
 	}
 
 	_, err := s.Read(ctx)
-	is.Equal(err != nil, true)
+	is.Equal(err, errors.New("key is not exist"))
 }
 
 func TestSource_AckSuccess(t *testing.T) {
@@ -186,5 +187,5 @@ func TestSource_TeardownFail(t *testing.T) {
 	}
 
 	err := s.Teardown(context.Background())
-	is.Equal(err != nil, true)
+	is.Equal(err, errors.New("pubsub closing error"))
 }

@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination/mock"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	"github.com/golang/mock/gomock"
@@ -62,7 +63,7 @@ func TestDestination_ConfigureFail(t *testing.T) {
 		models.ConfigClientEmail: "test@pubsub-test.iam.gserviceaccount.com",
 		models.ConfigProjectID:   "pubsub-test",
 	})
-	is.Equal(err != nil, true)
+	is.Equal(err, validator.RequiredErr(models.ConfigTopicID))
 }
 
 func TestDestination_TeardownSuccess(t *testing.T) {
@@ -98,5 +99,5 @@ func TestDestination_TeardownFail(t *testing.T) {
 	}
 
 	err := d.Teardown(context.Background())
-	is.Equal(err != nil, true)
+	is.Equal(err, errors.New("pubsub closing error"))
 }
