@@ -9,7 +9,7 @@ To use the Pub/Sub Lite service, it is necessary to fill out the `location` conf
 
 ### Prerequisites
 - [Go](https://go.dev/) 1.18
-- (optional) [golangci-lint](https://github.com/golangci/golangci-lint) 1.46.2
+- (optional) [golangci-lint](https://github.com/golangci/golangci-lint) 1.49.0
 
 ### How to build it
 Run `make build`.
@@ -36,7 +36,7 @@ If new messages are sent to GCP Pub/Sub while the connector is down,
 these messages will be received after the connector is up.
 
 **CDC**: Messages that are in the service cannot be deleted or changed. 
-Consequently, all messages have no `action` key in the metadata.
+Consequently, all messages have a `sdk.OperationCreate` operation.
 
 Messages can store own metadata as a key value data.
 All message metadata is passed to the record metadata.
