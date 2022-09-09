@@ -289,13 +289,15 @@ func prepareConfig(t *testing.T) map[string]string {
 		return nil
 	}
 
+	timeNow := time.Now().Unix()
+
 	return map[string]string{
 		models.ConfigPrivateKey:     privateKey,
 		models.ConfigClientEmail:    clientEmail,
 		models.ConfigProjectID:      projectID,
 		models.ConfigLocation:       os.Getenv("GCP_PUBSUB_LOCATION"),
-		models.ConfigTopicID:        fmt.Sprintf("source-test-topic-%d", time.Now().Unix()),
-		models.ConfigSubscriptionID: fmt.Sprintf("source-test-subscription-%d", time.Now().Unix()),
+		models.ConfigTopicID:        fmt.Sprintf("source-test-topic-%d", timeNow),
+		models.ConfigSubscriptionID: fmt.Sprintf("source-test-topic-%d-sub", timeNow),
 	}
 }
 

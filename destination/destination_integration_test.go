@@ -16,6 +16,7 @@ package destination
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -25,13 +26,11 @@ import (
 	"cloud.google.com/go/pubsublite"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/jpillora/backoff"
 	"github.com/matryer/is"
 	"google.golang.org/api/option"
-)
-
-const (
-	payload = "Hello, 世界"
 )
 
 func TestDestination_WriteSuccess(t *testing.T) {
@@ -50,21 +49,44 @@ func TestDestination_WriteSuccess(t *testing.T) {
 	err = dest.Open(ctx)
 	is.NoErr(err)
 
-	records := []sdk.Record{
-		{
-			Payload: sdk.Change{After: sdk.RawData(payload)},
-		},
+	want := sdk.Record{
+		Metadata: sdk.Metadata{"testKey": "testValue"},
+		Payload:  sdk.Change{After: sdk.RawData("Hello, 世界")},
 	}
 
 	n := 0
-	n, err = dest.Write(ctx, records)
+	n, err = dest.Write(ctx, []sdk.Record{want})
 	is.NoErr(err)
-	is.Equal(n, len(records))
+	is.Equal(n, len([]sdk.Record{want}))
 
 	cancel()
 
 	err = dest.Teardown(context.Background())
 	is.NoErr(err)
+
+	ctx, cancel = context.WithCancel(context.Background())
+
+	// check if records have been written
+	src := source.NewSource()
+
+	err = src.Configure(ctx, cfg)
+	is.NoErr(err)
+
+	err = src.Open(ctx, nil)
+	is.NoErr(err)
+
+	got, err := readWithBackoffRetry(ctx, src)
+	is.NoErr(err)
+
+	err = src.Ack(ctx, nil)
+	is.NoErr(err)
+
+	cancel()
+
+	err = src.Teardown(context.Background())
+	is.NoErr(err)
+
+	compare(is, got, want)
 }
 
 func TestDestination_WriteFail(t *testing.T) {
@@ -132,12 +154,15 @@ func prepareConfig(t *testing.T) map[string]string {
 		return nil
 	}
 
+	timeNow := time.Now().Unix()
+
 	return map[string]string{
-		models.ConfigPrivateKey:  privateKey,
-		models.ConfigClientEmail: clientEmail,
-		models.ConfigProjectID:   projectID,
-		models.ConfigLocation:    os.Getenv("GCP_PUBSUB_LOCATION"),
-		models.ConfigTopicID:     fmt.Sprintf("destination-test-topic-%d", time.Now().Unix()),
+		models.ConfigPrivateKey:     privateKey,
+		models.ConfigClientEmail:    clientEmail,
+		models.ConfigProjectID:      projectID,
+		models.ConfigLocation:       os.Getenv("GCP_PUBSUB_LOCATION"),
+		models.ConfigTopicID:        fmt.Sprintf("destination-test-topic-%d", timeNow),
+		models.ConfigSubscriptionID: fmt.Sprintf("destination-test-topic-%d-sub", timeNow),
 	}
 }
 
@@ -195,6 +220,12 @@ func prepareResources(cfg map[string]string, credential []byte) error {
 	}
 	topic.Stop()
 
+	if _, err = client.CreateSubscription(ctx, cfg[models.ConfigSubscriptionID], pubsub.SubscriptionConfig{
+		Topic: topic,
+	}); err != nil {
+		return fmt.Errorf("create subscription: %w", err)
+	}
+
 	return nil
 }
 
@@ -206,6 +237,10 @@ func cleanupResources(cfg map[string]string, credential []byte) error {
 		return fmt.Errorf("new client: %w", err)
 	}
 	defer client.Close()
+
+	if err = client.Subscription(cfg[models.ConfigSubscriptionID]).Delete(ctx); err != nil {
+		return fmt.Errorf("delete subscription: %w", err)
+	}
 
 	if err = client.Topic(cfg[models.ConfigTopicID]).Delete(ctx); err != nil {
 		return fmt.Errorf("delete topic: %w", err)
@@ -281,4 +316,44 @@ func cleanupResourcesLite(
 	}
 
 	return nil
+}
+
+func readWithBackoffRetry(ctx context.Context, src sdk.Source) (sdk.Record, error) {
+	b := &backoff.Backoff{
+		Factor: 2,
+		Min:    time.Millisecond * 100,
+		Max:    time.Second,
+	}
+
+	for {
+		got, err := src.Read(ctx)
+
+		if errors.Is(err, sdk.ErrBackoffRetry) {
+			select {
+			case <-ctx.Done():
+				return sdk.Record{}, ctx.Err()
+			case <-time.After(b.Duration()):
+				continue
+			}
+		}
+
+		return got, err
+	}
+}
+
+func compare(is *is.I, got, want sdk.Record) {
+	is.Equal(got.Operation, sdk.OperationCreate)
+
+	createdAt, err := got.Metadata.GetCreatedAt()
+	is.NoErr(err)
+	is.True(!createdAt.IsZero())
+
+	for k, wantMetadata := range want.Metadata {
+		if gotMetadata, ok := got.Metadata[k]; ok {
+			// only compare fields if they actually exist
+			is.Equal(wantMetadata, gotMetadata)
+		}
+	}
+
+	is.Equal(got.Payload, want.Payload)
 }
