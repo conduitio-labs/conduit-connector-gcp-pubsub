@@ -23,8 +23,8 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-// A Publisher represents a publisher interface.
-type Publisher interface {
+// A publisher represents a publisher interface.
+type publisher interface {
 	Publish(context.Context, sdk.Record) error
 	Stop() error
 }
@@ -33,7 +33,7 @@ type Publisher interface {
 type Destination struct {
 	sdk.UnimplementedDestination
 	cfg       config.Destination
-	publisher Publisher
+	publisher publisher
 }
 
 // NewDestination initialises a new Destination.

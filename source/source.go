@@ -23,8 +23,8 @@ import (
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
-// A Subscriber represents a subscriber interface.
-type Subscriber interface {
+// A subscriber represents a subscriber interface.
+type subscriber interface {
 	Next(ctx context.Context) (sdk.Record, error)
 	Ack(context.Context) error
 	Stop() error
@@ -34,7 +34,7 @@ type Subscriber interface {
 type Source struct {
 	sdk.UnimplementedSource
 	cfg        config.Source
-	subscriber Subscriber
+	subscriber subscriber
 }
 
 // NewSource initialises a new source.
