@@ -31,7 +31,7 @@ type SubscriberLite struct {
 }
 
 // NewSubscriberLite initializes a new subscriber client of GCP Pub/Sub Lite
-// and starts receiving a messages to the queue.
+// and starts receiving a messages to the message queue.
 func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite, error) {
 	const (
 		subscriptionPathFmt  = "projects/%s/locations/%s/subscriptions/%s"

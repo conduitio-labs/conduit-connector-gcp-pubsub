@@ -73,7 +73,7 @@ func (s *Source) Parameters() map[string]sdk.Parameter {
 	}
 }
 
-// Configure parses and stores configurations, returns an error in case of invalid configuration.
+// Configure parses, validates, and stores configurations.
 func (s *Source) Configure(_ context.Context, cfgRaw map[string]string) error {
 	cfg, err := config.ParseSource(cfgRaw)
 	if err != nil {
@@ -121,7 +121,7 @@ func (s *Source) Ack(ctx context.Context, _ sdk.Position) error {
 	return s.subscriber.Ack(ctx)
 }
 
-// Teardown releases the GCP subscriber client.
+// Teardown releases the subscriber client.
 func (s *Source) Teardown(ctx context.Context) error {
 	sdk.Logger(ctx).Info().Msg("closing the connection to the GCP API service...")
 

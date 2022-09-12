@@ -1,61 +1,48 @@
-# Conduit Connector Google Cloud Platform Pub/Sub
+# Conduit Connector GCP Pub/Sub and Pub/Sub Lite
 
-### General
-The GCP Pub/Sub connector is one of [Conduit](https://github.com/ConduitIO/conduit) plugins. 
-It provides both, a source and destination GCP Pub/Sub connector.
+## General
 
-The connector supports [Pub/Sub Lite](https://cloud.google.com/pubsub/lite/docs) service.
-To use the Pub/Sub Lite service, it is necessary to fill out the `location` configuration field.
+The GCP Pub/Sub and Pub/Sub Lite connector is one of [Conduit](https://github.com/ConduitIO/conduit) plugins.
+It provides both, a source and destination GCP Pub/Sub and Pub/Sub Lite connector.
 
-### Prerequisites
+To use the Pub/Sub Lite, it is necessary to fill out the `location` configuration field.
+
+Under the hood, the connector uses
+[Google Cloud Client Libraries for Go](https://github.com/googleapis/google-cloud-go).
+
+## Prerequisites
+
 - [Go](https://go.dev/) 1.18
 - (optional) [golangci-lint](https://github.com/golangci/golangci-lint) 1.49.0
 
-### How to build it
+## How to build it
+
 Run `make build`.
 
-### Testing
-Run `make test`.
+## Testing
 
-### How it works
-Under the hood, the connector uses [Google Cloud Client Libraries for Go](https://github.com/googleapis/google-cloud-go).
+Run `make test` to run all unit and integration tests, as well as an acceptance test. To pass the integration and
+acceptance tests, set the next configuration parameters to the environment variables: `GCP_PUBSUB_PRIVATE_KEY`,
+`GCP_PUBSUB_CLIENT_EMAIL`, and `GCP_PUBSUB_PROJECT_ID`.
 
-### Source
-A source connector represents the receiver of the messages from the GCP Pub/Sub or Pub/Sub Lite services.
+## Source
 
-#### How it works
-The system contains two queues in memory.
+A source connector represents a receiver for messages from GCP Pub/Sub and Pub/Sub Lite.
 
-The first queue contains records witch were returned by the `Read` method.
-Messages are continuously added to this queue as soon as they appear in the topic.
+To receive messages published to a topic, you must create a **pull subscription** to that topic and add it to
+the `subscriptionId` configuration field.
 
-The second queue exists to acknowledge records using the `Ack` method. 
-Messages are added to this queue immediately after a record is returned by the Read method.
+Message key-value attributes write to the record metadata.
 
-If new messages are sent to GCP Pub/Sub while the connector is down, 
-these messages will be received after the connector is up.
+If new messages are sent to the topic while the connector is down, these messages will be received after the connector
+is up.
 
-**CDC**: Messages that are in the service cannot be deleted or changed. 
-Consequently, all messages have a `sdk.OperationCreate` operation.
+Messages in the topic cannot be deleted or changed. Consequently, all messages have a `OperationCreate` operation.
 
-Messages can store own metadata as a key value data.
-All message metadata is passed to the record metadata.
+### Configuration
 
-#### Methods
-`Configure` parses the configuration and validates them.
-
-`Open` initializes the client and calls the client's `Receive` method.
-
-`Receive` method takes a callback function, which is called each time a message is received.
-
-The callback function sends messages to the queue and `Read` method receives messages from this queue.
-
-`Ack` calls the acknowledge method once the message was received.
-
-`Teardown` marks all unread messages from the queue that the client has not received (for Pub/Sub) and releases the client.
-
-#### Configuration
-The user can get the authorization data from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
+The user can get the authorization data from a JSON file by the following
+instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
 
 | name             | description                                                                  | required | example                                                                        |
 |------------------|------------------------------------------------------------------------------|----------|--------------------------------------------------------------------------------|
@@ -64,24 +51,17 @@ The user can get the authorization data from a JSON file by the following instru
 | `projectId`      | project id to auth in a client                                               | true     | conduit-pubsub                                                                 |
 | `subscriptionId` | subscription name to pull messages                                           | true     | conduit-subscription                                                           |
 | `location`       | cloud region or zone where the topic resides (for Pub/Sub Lite service only) | false    | europe-central2-a                                                              |
-**Notes**:
-1. The source connector supports subscriptions with **pull** delivery type only.
-2. Each subscription receives only one time a message from the topic. 
-So if you need to get one message sent to a topic twice (or more) - create two (or more) subscriptions and connectors to them.
 
-### Destination
-A destination connector represents an **asynchronous** writes to the Pub/Sub or Pub/Sub Lite services.
+## Destination
 
-`Configure` parses the configuration and validates them.
+A destination connector represents the message publisher to the Pub/Sub and Pub/Sub Lite.
 
-`Open` initializes the client.
+The record's metadata adds to the message key-value attributes.
 
-`Write` publishes records to the topic.
+### Configuration
 
-`Teardown` cancels the context, sends all remaining published messages, and releases the client.
-
-#### Configuration
-The user can get the authorization data from a JSON file by the following instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
+The user can get the authorization data from a JSON file by the following
+instructions: [Getting started with authentication](https://cloud.google.com/docs/authentication/getting-started).
 
 | name          | description                                                                   | required | example                                                                        |
 |---------------|-------------------------------------------------------------------------------|----------|--------------------------------------------------------------------------------|

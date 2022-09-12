@@ -46,7 +46,8 @@ type subscriber struct {
 	errorCh chan error
 }
 
-// NewSubscriber initializes a new subscriber client and starts receiving a messages to the queue.
+// NewSubscriber initializes a new subscriber client of GCP Pub/Sub
+// and starts receiving a messages to the message queue.
 func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) {
 	ps, err := newClient(ctx, cfg.General)
 	if err != nil {
