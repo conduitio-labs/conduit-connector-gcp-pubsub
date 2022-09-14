@@ -5,14 +5,14 @@ go 1.18
 require (
 	cloud.google.com/go/pubsub v1.22.2
 	cloud.google.com/go/pubsublite v1.3.2
-	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220823112121-47067cda967a
+	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220908065345-c14f70ebbd64
 	github.com/gammazero/deque v0.2.0
 	github.com/go-playground/validator/v10 v10.11.0
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/matryer/is v1.4.0
-	go.uber.org/goleak v1.1.12
+	go.uber.org/goleak v1.2.0
 	go.uber.org/multierr v1.8.0
 	google.golang.org/api v0.83.0
 )
@@ -37,8 +37,7 @@ require (
 	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/mitchellh/go-testing-interface v1.0.0 // indirect
 	github.com/oklog/run v1.0.0 // indirect
-	github.com/rs/zerolog v1.27.0 // indirect
-	github.com/stretchr/testify v1.7.1 // indirect
+	github.com/rs/zerolog v1.28.0 // indirect
 	go.buf.build/grpc/go/conduitio/conduit-connector-protocol v1.3.3 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect
