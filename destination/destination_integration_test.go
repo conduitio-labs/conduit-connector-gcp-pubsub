@@ -16,7 +16,6 @@ package destination
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -28,7 +27,6 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source"
 	sdk "github.com/conduitio/conduit-connector-sdk"
-	"github.com/jpillora/backoff"
 	"github.com/matryer/is"
 	"google.golang.org/api/option"
 )
@@ -75,7 +73,7 @@ func TestDestination_WriteSuccess(t *testing.T) {
 	err = src.Open(ctx, nil)
 	is.NoErr(err)
 
-	got, err := readWithBackoffRetry(ctx, src)
+	got, err := source.ReadWithBackoffRetry(ctx, src)
 	is.NoErr(err)
 
 	err = src.Ack(ctx, nil)
@@ -316,29 +314,6 @@ func cleanupResourcesLite(
 	}
 
 	return nil
-}
-
-func readWithBackoffRetry(ctx context.Context, src sdk.Source) (sdk.Record, error) {
-	b := &backoff.Backoff{
-		Factor: 2,
-		Min:    time.Millisecond * 100,
-		Max:    time.Second,
-	}
-
-	for {
-		got, err := src.Read(ctx)
-
-		if errors.Is(err, sdk.ErrBackoffRetry) {
-			select {
-			case <-ctx.Done():
-				return sdk.Record{}, ctx.Err()
-			case <-time.After(b.Duration()):
-				continue
-			}
-		}
-
-		return got, err
-	}
 }
 
 func compare(is *is.I, got, want sdk.Record) {

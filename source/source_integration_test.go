@@ -16,7 +16,6 @@ package source
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"testing"
@@ -29,7 +28,6 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/google/uuid"
-	"github.com/jpillora/backoff"
 	"github.com/matryer/is"
 	"google.golang.org/api/option"
 )
@@ -101,7 +99,7 @@ func TestSource_ReadOneRecord(t *testing.T) {
 
 	prepared := prepareData(is, recordsCount, cfg)
 
-	record, err := readWithBackoffRetry(ctx, src)
+	record, err := ReadWithBackoffRetry(ctx, src)
 	is.NoErr(err)
 
 	err = src.Ack(ctx, nil)
@@ -145,7 +143,7 @@ func TestSource_ReadRecordsWithStops(t *testing.T) {
 	// read the first firstStopIteratorCount records and stop
 	records := make([]sdk.Record, 0, recordsCount)
 	for len(records) < firstStopIteratorCount {
-		record, err := readWithBackoffRetry(ctx, src)
+		record, err := ReadWithBackoffRetry(ctx, src)
 		is.NoErr(err)
 
 		err = src.Ack(ctx, nil)
@@ -166,7 +164,7 @@ func TestSource_ReadRecordsWithStops(t *testing.T) {
 
 	// read the second secondStopIteratorCount records and stop
 	for len(records) < secondStopIteratorCount {
-		record, err := readWithBackoffRetry(ctx, src)
+		record, err := ReadWithBackoffRetry(ctx, src)
 		is.NoErr(err)
 
 		err = src.Ack(ctx, nil)
@@ -187,7 +185,7 @@ func TestSource_ReadRecordsWithStops(t *testing.T) {
 
 	// read rest of the records
 	for len(records) < recordsCount {
-		record, err := readWithBackoffRetry(ctx, src)
+		record, err := ReadWithBackoffRetry(ctx, src)
 		is.NoErr(err)
 
 		err = src.Ack(ctx, nil)
@@ -227,7 +225,7 @@ func TestSource_ReadALotOfRecords(t *testing.T) {
 	records := make([]sdk.Record, 0, recordsCount)
 
 	for len(records) < recordsCount {
-		record, err := readWithBackoffRetry(ctx, src)
+		record, err := ReadWithBackoffRetry(ctx, src)
 		is.NoErr(err)
 
 		err = src.Ack(ctx, nil)
@@ -242,29 +240,6 @@ func TestSource_ReadALotOfRecords(t *testing.T) {
 	is.NoErr(err)
 
 	compare(is, records, prepared)
-}
-
-func readWithBackoffRetry(ctx context.Context, src sdk.Source) (sdk.Record, error) {
-	b := &backoff.Backoff{
-		Factor: 2,
-		Min:    time.Millisecond * 100,
-		Max:    time.Second,
-	}
-
-	for {
-		got, err := src.Read(ctx)
-
-		if errors.Is(err, sdk.ErrBackoffRetry) {
-			select {
-			case <-ctx.Done():
-				return sdk.Record{}, ctx.Err()
-			case <-time.After(b.Duration()):
-				continue
-			}
-		}
-
-		return got, err
-	}
 }
 
 func prepareConfig(t *testing.T) map[string]string {

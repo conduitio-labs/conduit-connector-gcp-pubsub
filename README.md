@@ -32,7 +32,7 @@ A source connector represents a receiver for messages from GCP Pub/Sub and Pub/S
 To receive messages published to a topic, you must create a **pull subscription** to that topic and add it to
 the `subscriptionId` configuration field.
 
-Message key-value attributes write to the record metadata.
+Message key-value attributes are written to the record metadata.
 
 If new messages are sent to the topic while the connector is down, these messages will be received after the connector
 is up.
@@ -56,7 +56,7 @@ instructions: [Getting started with authentication](https://cloud.google.com/doc
 
 A destination connector represents the message publisher to the Pub/Sub and Pub/Sub Lite.
 
-The record's metadata adds to the message key-value attributes.
+The record's metadata is added to the message key-value attributes.
 
 ### Configuration
 

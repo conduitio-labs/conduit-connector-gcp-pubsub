@@ -66,7 +66,8 @@ func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite,
 
 			subLite.msgDeque.PushBack(m)
 		})
-		// this check is because there is no handling of the Nack method.
+		// this check is because there is no handling of the Nack method
+		// (see https://cloud.google.com/pubsub/lite/docs/subscribing#acknowledging_messages).
 		// If processed, the message will be considered acknowledged and will not be sent again
 		if err != nil && err.Error() != errMsgNotSupportNack {
 			subLite.errorCh <- fmt.Errorf("subscription lite receive: %w", err)

@@ -16,11 +16,14 @@ package source
 
 import (
 	"context"
+	"errors"
+	"time"
 
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/jpillora/backoff"
 )
 
 // A subscriber represents a subscriber interface.
@@ -130,4 +133,29 @@ func (s *Source) Teardown(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+// ReadWithBackoffRetry calls the Read function with a delay between calls
+// until a record is returned.
+func ReadWithBackoffRetry(ctx context.Context, src sdk.Source) (sdk.Record, error) {
+	b := &backoff.Backoff{
+		Factor: 2,
+		Min:    time.Millisecond * 100,
+		Max:    time.Second,
+	}
+
+	for {
+		got, err := src.Read(ctx)
+
+		if errors.Is(err, sdk.ErrBackoffRetry) {
+			select {
+			case <-ctx.Done():
+				return sdk.Record{}, ctx.Err()
+			case <-time.After(b.Duration()):
+				continue
+			}
+		}
+
+		return got, err
+	}
 }
