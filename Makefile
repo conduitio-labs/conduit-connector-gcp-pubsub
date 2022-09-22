@@ -1,7 +1,9 @@
 .PHONY: build test
 
+VERSION=$(shell git describe --tags --dirty --always)
+
 build:
-	go build -o conduit-connector-gcp-pubsub cmd/gcppubsub/main.go
+	go build -ldflags "-X 'github.com/conduitio-labs/conduit-connector-gcp-pubsub.version=${VERSION}'" -o conduit-connector-gcp-pubsub cmd/connector/main.go
 
 test:
 	go test $(GOTEST_FLAGS) -count=1 -race ./...
