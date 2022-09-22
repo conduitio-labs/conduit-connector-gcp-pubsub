@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/pubsublite v1.3.2
 	github.com/conduitio/conduit-connector-sdk v0.2.1-0.20220908065345-c14f70ebbd64
 	github.com/gammazero/deque v0.2.0
-	github.com/go-playground/validator/v10 v10.11.0
+	github.com/go-playground/validator/v10 v10.11.1
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jpillora/backoff v1.0.0
