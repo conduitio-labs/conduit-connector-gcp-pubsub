@@ -18,4 +18,9 @@ jobs:
 
       - name: Test
         env:
+          privateKey: ${{ secrets.GCP_PUBSUB_PRIVATE_KEY }}
+          clientEmail: ${{ secrets.GCP_PUBSUB_CLIENT_EMAIL }}
+          projectId: ${{ secrets.GCP_PUBSUB_PROJECT_ID }}
+          subscriptionId: ${{ secrets.GCP_PUBSUB_SUBSCRIPTION_ID }}
+          topicId: ${{ secrets.GCP_PUBSUB_TOPIC_ID }}
         run: make test GOTEST_FLAGS="-v -count=1"
