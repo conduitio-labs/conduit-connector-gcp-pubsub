@@ -26,7 +26,7 @@ var version = "v0.0.0-dev"
 // Specification returns specification of the connector.
 func Specification() sdk.Specification {
 	return sdk.Specification{
-		Name:    "gcp-pub-sub",
+		Name:    "gcp-pubsub",
 		Summary: "A GCP Pub/Sub source and destination plugin for Conduit, written in Go.",
 		Description: "The Google Cloud Platform Pub/Sub connector is one of Conduit plugins. " +
 			"It provides a source and a destination GCP Pub/Sub and Pub/Sub Lite connector.",
