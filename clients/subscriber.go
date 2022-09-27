@@ -44,6 +44,8 @@ type subscriber struct {
 	ackDeque *deque.Deque[*pubsub.Message]
 	// error chanel for the receiver's error
 	errorCh chan error
+	// context with close to close the goroutine with the receiver
+	ctxCancel context.CancelFunc
 }
 
 // NewSubscriber initializes a new subscriber client of GCP Pub/Sub
@@ -54,17 +56,20 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 		return nil, err
 	}
 
+	cctx, cancel := context.WithCancel(ctx)
+
 	sub := &Subscriber{
 		pubSub: ps,
 		subscriber: &subscriber{
-			msgDeque: deque.New[*pubsub.Message](),
-			ackDeque: deque.New[*pubsub.Message](),
-			errorCh:  make(chan error),
+			msgDeque:  deque.New[*pubsub.Message](),
+			ackDeque:  deque.New[*pubsub.Message](),
+			errorCh:   make(chan error),
+			ctxCancel: cancel,
 		},
 	}
 
 	go func() {
-		err = sub.pubSub.client.Subscription(cfg.SubscriptionID).Receive(ctx,
+		err = sub.pubSub.client.Subscription(cfg.SubscriptionID).Receive(cctx,
 			func(_ context.Context, m *pubsub.Message) {
 				sub.mu.Lock()
 				defer sub.mu.Unlock()
@@ -138,10 +143,12 @@ func (s *Subscriber) Stop() error {
 	return multierr.Append(s.stop(), s.pubSub.close())
 }
 
-// stop cancels the context to stop the GCP receiver,
-// marks all unread messages the client did not receive them,
-// and waits the GCP receiver will stop.
+// stop cancels the context to release the goroutine with the receiver,
+// marks all received messages as not acknowledged,
+// and waits until the goroutine with the receiver is closed.
 func (s *subscriber) stop() error {
+	s.ctxCancel()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 

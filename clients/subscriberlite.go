@@ -44,11 +44,14 @@ func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite,
 		return nil, err
 	}
 
+	cctx, cancel := context.WithCancel(ctx)
+
 	subLite := &SubscriberLite{
 		subscriber: &subscriber{
-			msgDeque: deque.New[*pubsub.Message](),
-			ackDeque: deque.New[*pubsub.Message](),
-			errorCh:  make(chan error),
+			msgDeque:  deque.New[*pubsub.Message](),
+			ackDeque:  deque.New[*pubsub.Message](),
+			errorCh:   make(chan error),
+			ctxCancel: cancel,
 		},
 	}
 
@@ -60,7 +63,7 @@ func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite,
 	}
 
 	go func() {
-		err = client.Receive(ctx, func(_ context.Context, m *pubsub.Message) {
+		err = client.Receive(cctx, func(_ context.Context, m *pubsub.Message) {
 			subLite.mu.Lock()
 			defer subLite.mu.Unlock()
 
@@ -81,9 +84,7 @@ func NewSubscriberLite(ctx context.Context, cfg config.Source) (*SubscriberLite,
 	return subLite, nil
 }
 
-// Stop cancels the context to stop the GCP receiver,
-// marks all unread messages the client did not receive them,
-// and waits the GCP receiver will stop.
+// Stop calls stop method.
 func (sl *SubscriberLite) Stop() error {
 	return sl.stop()
 }
