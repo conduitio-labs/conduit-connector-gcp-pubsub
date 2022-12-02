@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	cloud.google.com/go/pubsub v1.27.0
-	cloud.google.com/go/pubsublite v1.4.1
+	cloud.google.com/go/pubsublite v1.5.0
 	github.com/conduitio/conduit-connector-sdk v0.3.0
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.11.1
@@ -52,7 +52,7 @@ require (
 	golang.org/x/text v0.4.0 // indirect
 	golang.org/x/time v0.1.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20221118155620-16455021b5e6 // indirect
+	google.golang.org/genproto v0.0.0-20221201164419-0e50fba7f41c // indirect
 	google.golang.org/grpc v1.50.1 // indirect
 	google.golang.org/protobuf v1.28.1 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
