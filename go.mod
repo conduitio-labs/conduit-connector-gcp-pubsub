@@ -3,7 +3,7 @@ module github.com/conduitio-labs/conduit-connector-gcp-pubsub
 go 1.18
 
 require (
-	cloud.google.com/go/pubsub v1.27.0
+	cloud.google.com/go/pubsub v1.27.1
 	cloud.google.com/go/pubsublite v1.5.0
 	github.com/conduitio/conduit-connector-sdk v0.3.0
 	github.com/gammazero/deque v0.2.1
