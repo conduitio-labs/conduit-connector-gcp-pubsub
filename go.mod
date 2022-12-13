@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	cloud.google.com/go/pubsub v1.28.0
-	cloud.google.com/go/pubsublite v1.5.0
+	cloud.google.com/go/pubsublite v1.6.0
 	github.com/conduitio/conduit-connector-sdk v0.3.0
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.11.1
@@ -18,7 +18,7 @@ require (
 )
 
 require (
-	cloud.google.com/go v0.105.0 // indirect
+	cloud.google.com/go v0.107.0 // indirect
 	cloud.google.com/go/compute v1.13.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.2 // indirect
 	cloud.google.com/go/iam v0.8.0 // indirect
