@@ -1,4 +1,4 @@
-**Test Run 7/11/2022 - Fucntional testing GCP PubSub Source/Destination connector**
+**Test Run 7/11/2022 - Functional testing GCP PubSub Source/Destination connector**
 
 **branch:**  https://github.com/conduitio-labs/conduit-connector-gcp-pubsub/tree/develop
 
