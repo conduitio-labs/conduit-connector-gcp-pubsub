@@ -1,3 +1,9 @@
+**Test Run 7/11/2022 - Fucntional testing GCP PubSub Source/Destination connector**
+
+**branch:**  https://github.com/conduitio-labs/conduit-connector-gcp-pubsub/tree/develop
+
+**commit** abc4730e8ff1c9f61577ecc4584934fd1b9d9341
+
 | ID       | Title                                                                                                                                                                                                                                                      | Status  | Comment                                                                                                                                                                                                 |
 | -------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | T2549052 | The user can't create the GCP Pub/Sub source connector without the "type" key -> the system is returned an error                                                                                                                                           | Passed  |                                                                                                                                                                                                         |
