@@ -1,3 +1,9 @@
+**Test Run 10/19/2022 - Regression test GCP Pub Sub Source/Destination**
+
+**branch:** https://github.com/conduitio-labs/conduit-connector-gcp-pubsub/tree/main
+
+**commit** 9bfb94900a41a64f83a1b072f3c367035ec2804e
+
 | ID       | Title                                                                                                                                                                                                                                                     | Status | Comment |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ------- |
 | T3011374 | Data from two different GCP Pub/Sub source connectors are transferred to the File Destination connector                                                                                                                                                   | Passed |         |
