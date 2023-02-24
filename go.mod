@@ -11,7 +11,7 @@ require (
 	github.com/golang/mock v1.6.0
 	github.com/google/uuid v1.3.0
 	github.com/jpillora/backoff v1.0.0
-	github.com/matryer/is v1.4.0
+	github.com/matryer/is v1.4.1
 	go.uber.org/goleak v1.2.1
 	go.uber.org/multierr v1.9.0
 	google.golang.org/api v0.110.0
