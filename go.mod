@@ -13,7 +13,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/matryer/is v1.4.1
 	go.uber.org/goleak v1.2.1
-	go.uber.org/multierr v1.9.0
+	go.uber.org/multierr v1.10.0
 	google.golang.org/api v0.111.0
 )
 
@@ -53,7 +53,6 @@ require (
 	github.com/spf13/cast v1.3.1 // indirect
 	go.buf.build/grpc/go/conduitio/conduit-connector-protocol v1.4.5 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
 	golang.org/x/crypto v0.5.0 // indirect
 	golang.org/x/exp v0.0.0-20221114191408-850992195362 // indirect
 	golang.org/x/net v0.7.0 // indirect
