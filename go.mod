@@ -3,7 +3,7 @@ module github.com/conduitio-labs/conduit-connector-gcp-pubsub
 go 1.20
 
 require (
-	cloud.google.com/go/pubsub v1.29.0
+	cloud.google.com/go/pubsub v1.30.0
 	cloud.google.com/go/pubsublite v1.7.0
 	github.com/conduitio/conduit-connector-sdk v0.5.2
 	github.com/gammazero/deque v0.2.1
@@ -61,7 +61,7 @@ require (
 	golang.org/x/text v0.8.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20230306155012-7f2fa6fef1f4 // indirect
+	google.golang.org/genproto v0.0.0-20230320184635-7606e756e683 // indirect
 	google.golang.org/grpc v1.53.0 // indirect
 	google.golang.org/protobuf v1.29.1 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
