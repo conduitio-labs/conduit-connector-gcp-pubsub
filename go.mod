@@ -13,7 +13,7 @@ require (
 	github.com/jpillora/backoff v1.0.0
 	github.com/matryer/is v1.4.1
 	go.uber.org/goleak v1.2.1
-	go.uber.org/multierr v1.10.0
+	go.uber.org/multierr v1.11.0
 	google.golang.org/api v0.114.0
 )
 
