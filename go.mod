@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	cloud.google.com/go/pubsub v1.30.0
-	cloud.google.com/go/pubsublite v1.7.1
+	cloud.google.com/go/pubsublite v1.8.0
 	github.com/conduitio/conduit-connector-sdk v0.6.0
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.12.0
