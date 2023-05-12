@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	cloud.google.com/go/pubsub v1.30.1
-	cloud.google.com/go/pubsublite v1.8.0
+	cloud.google.com/go/pubsublite v1.8.1
 	github.com/conduitio/conduit-connector-sdk v0.6.0
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.13.0
@@ -63,7 +63,7 @@ require (
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
-	google.golang.org/grpc v1.54.0 // indirect
+	google.golang.org/grpc v1.55.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
 )
