@@ -11,8 +11,8 @@ cloud.google.com/go/iam v1.1.0/go.mod h1:nxdHjaKfCr7fNYx/HJMM8LgiMugmveWlkatear5
 cloud.google.com/go/kms v1.12.1 h1:xZmZuwy2cwzsocmKDOPu4BL7umg8QXagQx6fKVmf45U=
 cloud.google.com/go/longrunning v0.5.1 h1:Fr7TXftcqTudoyRJa113hyaqlGdiBQkp0Gq7tErFDWI=
 cloud.google.com/go/longrunning v0.5.1/go.mod h1:spvimkwdz6SPWKEt/XBij79E9fiTkHSQl/fRUUQJYJc=
-cloud.google.com/go/pubsub v1.32.0 h1:JOEkgEYBuUTHSyHS4TcqOFuWr+vD6qO/imsFqShUCp4=
-cloud.google.com/go/pubsub v1.32.0/go.mod h1:f+w71I33OMyxf9VpMVcZbnG5KSUkCOUHYpFd5U1GdRc=
+cloud.google.com/go/pubsub v1.33.0 h1:6SPCPvWav64tj0sVX/+npCBKhUi/UjJehy9op/V3p2g=
+cloud.google.com/go/pubsub v1.33.0/go.mod h1:f+w71I33OMyxf9VpMVcZbnG5KSUkCOUHYpFd5U1GdRc=
 cloud.google.com/go/pubsublite v1.8.1 h1:pX+idpWMIH30/K7c0epN6V703xpIcMXWRjKJsz0tYGY=
 cloud.google.com/go/pubsublite v1.8.1/go.mod h1:fOLdU4f5xldK4RGJrBMm+J7zMWNj/k4PxwEZXy39QS0=
 github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03qcyfWMU=
