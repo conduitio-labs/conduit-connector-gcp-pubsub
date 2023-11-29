@@ -52,8 +52,7 @@ func TestDestination_WriteSuccess(t *testing.T) {
 		Payload:  sdk.Change{After: sdk.RawData("Hello, 世界")},
 	}
 
-	n := 0
-	n, err = dest.Write(ctx, []sdk.Record{want})
+	n, err := dest.Write(ctx, []sdk.Record{want})
 	is.NoErr(err)
 	is.Equal(n, len([]sdk.Record{want}))
 
@@ -114,8 +113,7 @@ func TestDestination_WriteFail(t *testing.T) {
 		Payload: sdk.Change{After: sdk.RawData(p)},
 	}}
 
-	n := 0
-	n, err = dest.Write(ctx, records)
+	n, err := dest.Write(ctx, records)
 	is.Equal(n, 0)
 	if cfg[models.ConfigLocation] == "" {
 		is.Equal(err.Error(), "publish message: item size exceeds bundle byte limit")
