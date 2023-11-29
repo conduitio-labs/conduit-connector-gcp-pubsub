@@ -12,8 +12,8 @@ Under the hood, the connector uses
 
 ## Prerequisites
 
-- [Go](https://go.dev/) 1.20
-- (optional) [golangci-lint](https://github.com/golangci/golangci-lint) 1.49.0
+- [Go](https://go.dev/) 1.21
+- (optional) [golangci-lint](https://github.com/golangci/golangci-lint) 1.55.2
 
 ## How to build it
 
