@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.1
 
 require (
-	cloud.google.com/go/pubsub v1.33.0
+	cloud.google.com/go/pubsub v1.34.0
 	cloud.google.com/go/pubsublite v1.8.1
 	github.com/conduitio/conduit-connector-sdk v0.8.0
 	github.com/gammazero/deque v0.2.1
