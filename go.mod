@@ -5,7 +5,7 @@ go 1.21
 toolchain go1.21.1
 
 require (
-	cloud.google.com/go/pubsub v1.36.0
+	cloud.google.com/go/pubsub v1.36.1
 	cloud.google.com/go/pubsublite v1.8.1
 	github.com/conduitio/conduit-connector-sdk v0.8.0
 	github.com/gammazero/deque v0.2.1
@@ -74,9 +74,9 @@ require (
 	golang.org/x/time v0.5.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto v0.0.0-20240116215550-a9fa1716bcac // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20240122161410-6c6643bf1457 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20240125205218-1f4bbc51befe // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240116215550-a9fa1716bcac // indirect
-	google.golang.org/grpc v1.60.1 // indirect
+	google.golang.org/grpc v1.61.0 // indirect
 	google.golang.org/protobuf v1.32.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
 )
