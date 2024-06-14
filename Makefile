@@ -17,6 +17,10 @@ mockgen:
 lint:
 	golangci-lint run
 
+.PHONY: generate
+generate:
+	go generate ./...
+
 .PHONY: install-tools
 install-tools:
 	@echo Installing tools from tools.go
