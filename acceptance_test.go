@@ -25,6 +25,7 @@ import (
 	"cloud.google.com/go/pubsublite"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/google/uuid"
 	"go.uber.org/goleak"
@@ -45,12 +46,12 @@ type driver struct {
 }
 
 // GenerateRecord generates a new record.
-func (d driver) GenerateRecord(_ *testing.T, op sdk.Operation) sdk.Record {
-	return sdk.Record{
-		Position:  sdk.Position(uuid.NewString()),
+func (d driver) GenerateRecord(_ *testing.T, op opencdc.Operation) opencdc.Record {
+	return opencdc.Record{
+		Position:  opencdc.Position(uuid.NewString()),
 		Operation: op,
-		Metadata:  sdk.Metadata{uuid.NewString(): uuid.NewString()},
-		Payload:   sdk.Change{After: sdk.RawData(uuid.NewString())},
+		Metadata:  opencdc.Metadata{uuid.NewString(): uuid.NewString()},
+		Payload:   opencdc.Change{After: opencdc.RawData(uuid.NewString())},
 	}
 }
 

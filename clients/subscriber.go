@@ -21,6 +21,7 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
+	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/gammazero/deque"
 	"github.com/google/uuid"
@@ -90,35 +91,35 @@ func NewSubscriber(ctx context.Context, cfg config.Source) (*Subscriber, error) 
 }
 
 // Next returns the next record or an error.
-func (s *subscriber) Next(ctx context.Context) (sdk.Record, error) {
+func (s *subscriber) Next(ctx context.Context) (opencdc.Record, error) {
 	select {
 	case err := <-s.errorCh:
-		return sdk.Record{}, err
+		return opencdc.Record{}, err
 	case <-ctx.Done():
-		return sdk.Record{}, ctx.Err()
+		return opencdc.Record{}, ctx.Err()
 	default:
 		s.mu.Lock()
 		defer s.mu.Unlock()
 
 		if s.msgDeque.Len() == 0 {
-			return sdk.Record{}, sdk.ErrBackoffRetry
+			return opencdc.Record{}, sdk.ErrBackoffRetry
 		}
 
 		msg := s.msgDeque.PopFront()
 
 		s.ackDeque.PushBack(msg)
 
-		metadata := sdk.Metadata{}
+		metadata := opencdc.Metadata{}
 		if len(msg.Attributes) > 0 {
 			metadata = msg.Attributes
 		}
 		metadata.SetCreatedAt(msg.PublishTime)
 
 		return sdk.Util.Source.NewRecordCreate(
-			sdk.Position(uuid.NewString()),
+			opencdc.Position(uuid.NewString()),
 			metadata,
 			nil,
-			sdk.RawData(msg.Data),
+			opencdc.RawData(msg.Data),
 		), nil
 	}
 }

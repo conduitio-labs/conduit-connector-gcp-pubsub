@@ -23,8 +23,8 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config/validator"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination/mock"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
-	"github.com/golang/mock/gomock"
 	"github.com/matryer/is"
+	"go.uber.org/mock/gomock"
 )
 
 func TestDestination_ConfigureSuccess(t *testing.T) {

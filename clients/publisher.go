@@ -20,7 +20,7 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
-	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/conduitio/conduit-commons/opencdc"
 )
 
 // A Publisher represents a publisher struct with a GCP Pub/Sub client.
@@ -44,7 +44,7 @@ func NewPublisher(ctx context.Context, cfg config.Destination) (*Publisher, erro
 }
 
 // Publish publishes records to the GCP Pub/Sub topic.
-func (p *Publisher) Publish(ctx context.Context, record sdk.Record) error {
+func (p *Publisher) Publish(ctx context.Context, record opencdc.Record) error {
 	_, err := p.topic.Publish(ctx, &pubsub.Message{
 		Data:       record.Payload.After.Bytes(),
 		Attributes: record.Metadata,
