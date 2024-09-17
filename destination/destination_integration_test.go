@@ -26,7 +26,7 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/source"
-	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/conduitio/conduit-commons/opencdc"
 	"github.com/matryer/is"
 	"google.golang.org/api/option"
 )
@@ -47,14 +47,14 @@ func TestDestination_WriteSuccess(t *testing.T) {
 	err = dest.Open(ctx)
 	is.NoErr(err)
 
-	want := sdk.Record{
-		Metadata: sdk.Metadata{"testKey": "testValue"},
-		Payload:  sdk.Change{After: sdk.RawData("Hello, 世界")},
+	want := opencdc.Record{
+		Metadata: opencdc.Metadata{"testKey": "testValue"},
+		Payload:  opencdc.Change{After: opencdc.RawData("Hello, 世界")},
 	}
 
-	n, err := dest.Write(ctx, []sdk.Record{want})
+	n, err := dest.Write(ctx, []opencdc.Record{want})
 	is.NoErr(err)
-	is.Equal(n, len([]sdk.Record{want}))
+	is.Equal(n, len([]opencdc.Record{want}))
 
 	cancel()
 
@@ -109,8 +109,8 @@ func TestDestination_WriteFail(t *testing.T) {
 		p[i] = '!'
 	}
 
-	records := []sdk.Record{{
-		Payload: sdk.Change{After: sdk.RawData(p)},
+	records := []opencdc.Record{{
+		Payload: opencdc.Change{After: opencdc.RawData(p)},
 	}}
 
 	n, err := dest.Write(ctx, records)
@@ -314,8 +314,8 @@ func cleanupResourcesLite(
 	return nil
 }
 
-func compare(is *is.I, got, want sdk.Record) {
-	is.Equal(got.Operation, sdk.OperationCreate)
+func compare(is *is.I, got, want opencdc.Record) {
+	is.Equal(got.Operation, opencdc.OperationCreate)
 
 	createdAt, err := got.Metadata.GetCreatedAt()
 	is.NoErr(err)

@@ -26,6 +26,7 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/destination"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
+	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 	"github.com/google/uuid"
 	"github.com/matryer/is"
@@ -107,7 +108,7 @@ func TestSource_ReadOneRecord(t *testing.T) {
 
 	cancel()
 
-	records := make([]sdk.Record, 0, recordsCount)
+	records := make([]opencdc.Record, 0, recordsCount)
 	records = append(records, record)
 
 	err = src.Teardown(context.Background())
@@ -141,7 +142,7 @@ func TestSource_ReadRecordsWithStops(t *testing.T) {
 	prepared := prepareData(is, recordsCount, cfg)
 
 	// read the first firstStopIteratorCount records and stop
-	records := make([]sdk.Record, 0, recordsCount)
+	records := make([]opencdc.Record, 0, recordsCount)
 	for len(records) < firstStopIteratorCount {
 		record, err := ReadWithBackoffRetry(ctx, src)
 		is.NoErr(err)
@@ -222,7 +223,7 @@ func TestSource_ReadALotOfRecords(t *testing.T) {
 
 	prepared := prepareData(is, recordsCount, cfg)
 
-	records := make([]sdk.Record, 0, recordsCount)
+	records := make([]opencdc.Record, 0, recordsCount)
 
 	for len(records) < recordsCount {
 		record, err := ReadWithBackoffRetry(ctx, src)
@@ -446,7 +447,7 @@ func cleanupResourcesLite(
 	return nil
 }
 
-func prepareData(is *is.I, recordsCount int, cfg map[string]string) map[string]sdk.Record {
+func prepareData(is *is.I, recordsCount int, cfg map[string]string) map[string]opencdc.Record {
 	var (
 		ctx, cancel = context.WithCancel(context.Background())
 		dest        = destination.NewDestination()
@@ -460,15 +461,15 @@ func prepareData(is *is.I, recordsCount int, cfg map[string]string) map[string]s
 	err = dest.Open(ctx)
 	is.NoErr(err)
 
-	records := make([]sdk.Record, recordsCount)
-	prepared := make(map[string]sdk.Record, recordsCount)
+	records := make([]opencdc.Record, recordsCount)
+	prepared := make(map[string]opencdc.Record, recordsCount)
 
 	for i := 0; i < recordsCount; i++ {
 		payload := uuid.NewString()
 
-		record := sdk.Record{
+		record := opencdc.Record{
 			Metadata: map[string]string{uuid.NewString(): uuid.NewString()},
-			Payload:  sdk.Change{After: sdk.RawData(payload)},
+			Payload:  opencdc.Change{After: opencdc.RawData(payload)},
 		}
 
 		records[i] = record
@@ -487,12 +488,12 @@ func prepareData(is *is.I, recordsCount int, cfg map[string]string) map[string]s
 	return prepared
 }
 
-func compare(is *is.I, records []sdk.Record, prepared map[string]sdk.Record) {
+func compare(is *is.I, records []opencdc.Record, prepared map[string]opencdc.Record) {
 	for i := range records {
 		pr, ok := prepared[string(records[i].Payload.After.Bytes())]
 		is.True(ok)
 
-		is.Equal(records[i].Operation, sdk.OperationCreate)
+		is.Equal(records[i].Operation, opencdc.OperationCreate)
 
 		createdAt, err := records[i].Metadata.GetCreatedAt()
 		is.NoErr(err)

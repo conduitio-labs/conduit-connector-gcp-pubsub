@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//go:generate mockgen -typed -source=destination.go -destination=mock/destination.go -package=mock -mock_names=publisher=MockPublisher . publisher
+
 package destination
 
 import (
@@ -20,12 +22,14 @@ import (
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/clients"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/models"
+	cconfig "github.com/conduitio/conduit-commons/config"
+	"github.com/conduitio/conduit-commons/opencdc"
 	sdk "github.com/conduitio/conduit-connector-sdk"
 )
 
 // A publisher represents a publisher interface.
 type publisher interface {
-	Publish(context.Context, sdk.Record) error
+	Publish(context.Context, opencdc.Record) error
 	Stop() error
 }
 
@@ -42,38 +46,48 @@ func NewDestination() sdk.Destination {
 }
 
 // Parameters returns a map of named Parameters that describe how to configure the Source.
-func (d *Destination) Parameters() map[string]sdk.Parameter {
-	return map[string]sdk.Parameter{
+func (d *Destination) Parameters() cconfig.Parameters {
+	return map[string]cconfig.Parameter{
 		models.ConfigPrivateKey: {
 			Default:     "",
-			Required:    true,
 			Description: "GCP Pub/Sub private key.",
+			Validations: []cconfig.Validation{
+				cconfig.ValidationRequired{},
+			},
 		},
 		models.ConfigClientEmail: {
 			Default:     "",
-			Required:    true,
 			Description: "GCP Pub/Sub client email key.",
+			Validations: []cconfig.Validation{
+				cconfig.ValidationRequired{},
+			},
 		},
 		models.ConfigProjectID: {
 			Default:     "",
-			Required:    true,
 			Description: "GCP Pub/Sub project id key.",
+			Validations: []cconfig.Validation{
+				cconfig.ValidationRequired{},
+			},
 		},
 		models.ConfigTopicID: {
 			Default:     "",
-			Required:    true,
 			Description: "GCP Pub/Sub topic id key.",
+			Validations: []cconfig.Validation{
+				cconfig.ValidationRequired{},
+			},
 		},
 		models.ConfigLocation: {
 			Default:     "",
-			Required:    false,
 			Description: "Cloud Region or Zone where the topic resides (for GCP Pub/Sub Lite only).",
+			Validations: []cconfig.Validation{
+				cconfig.ValidationRequired{},
+			},
 		},
 	}
 }
 
 // Configure parses and stores configurations, returns an error in case of invalid configuration.
-func (d *Destination) Configure(_ context.Context, cfgRaw map[string]string) error {
+func (d *Destination) Configure(_ context.Context, cfgRaw cconfig.Config) error {
 	cfg, err := config.ParseDestination(cfgRaw)
 	if err != nil {
 		return err
@@ -104,7 +118,7 @@ func (d *Destination) Open(ctx context.Context) (err error) {
 }
 
 // Write writes records into a Destination.
-func (d *Destination) Write(ctx context.Context, records []sdk.Record) (int, error) {
+func (d *Destination) Write(ctx context.Context, records []opencdc.Record) (int, error) {
 	for i := range records {
 		err := d.publisher.Publish(ctx, records[i])
 		if err != nil {
