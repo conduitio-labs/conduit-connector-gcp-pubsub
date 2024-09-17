@@ -21,7 +21,7 @@ import (
 	"cloud.google.com/go/pubsub"
 	"cloud.google.com/go/pubsublite/pscompat"
 	"github.com/conduitio-labs/conduit-connector-gcp-pubsub/config"
-	sdk "github.com/conduitio/conduit-connector-sdk"
+	"github.com/conduitio/conduit-commons/opencdc"
 	"google.golang.org/api/option"
 )
 
@@ -51,7 +51,7 @@ func NewPublisherLite(ctx context.Context, cfg config.Destination) (*PublisherLi
 }
 
 // Publish publishes a record to the GCP Pub/Sub Lite topic.
-func (pl *PublisherLite) Publish(ctx context.Context, record sdk.Record) error {
+func (pl *PublisherLite) Publish(ctx context.Context, record opencdc.Record) error {
 	_, err := pl.publisher.Publish(ctx, &pubsub.Message{
 		Data:       record.Payload.After.Bytes(),
 		Attributes: record.Metadata,

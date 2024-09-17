@@ -26,6 +26,7 @@ linters:
   enable:
     - bodyclose
     # - depguard
+    - copyloopvar
     - dogsled
     - durationcheck
     - errcheck
@@ -33,7 +34,6 @@ linters:
     # - errorlint
     # - exhaustive
     # - exhaustivestruct
-    - exportloopref
     # - forbidigo
     # - forcetypeassert
     # - funlen
