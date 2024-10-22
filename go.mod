@@ -3,7 +3,7 @@ module github.com/conduitio-labs/conduit-connector-gcp-pubsub
 go 1.23.2
 
 require (
-	cloud.google.com/go/pubsub v1.44.0
+	cloud.google.com/go/pubsub v1.45.0
 	cloud.google.com/go/pubsublite v1.8.2
 	github.com/conduitio/conduit-commons v0.4.0
 	github.com/conduitio/conduit-connector-sdk v0.11.0
