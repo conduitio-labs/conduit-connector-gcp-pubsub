@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/pubsub v1.45.1
 	cloud.google.com/go/pubsublite v1.8.2
 	github.com/conduitio/conduit-commons v0.4.0
-	github.com/conduitio/conduit-connector-sdk v0.11.0
+	github.com/conduitio/conduit-connector-sdk v0.11.1
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.22.1
 	github.com/golangci/golangci-lint v1.61.0
