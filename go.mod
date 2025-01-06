@@ -9,7 +9,7 @@ require (
 	github.com/conduitio/conduit-connector-sdk v0.12.0
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.23.0
-	github.com/golangci/golangci-lint v1.63.3
+	github.com/golangci/golangci-lint v1.63.4
 	github.com/google/uuid v1.6.0
 	github.com/jpillora/backoff v1.0.0
 	github.com/matryer/is v1.4.1
