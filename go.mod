@@ -3,7 +3,7 @@ module github.com/conduitio-labs/conduit-connector-gcp-pubsub
 go 1.23.2
 
 require (
-	cloud.google.com/go/pubsub v1.46.0
+	cloud.google.com/go/pubsub v1.47.0
 	cloud.google.com/go/pubsublite v1.8.2
 	github.com/conduitio/conduit-commons v0.5.0
 	github.com/conduitio/conduit-connector-sdk v0.12.0
@@ -22,7 +22,7 @@ require (
 require (
 	4d63.com/gocheckcompilerdirectives v1.2.1 // indirect
 	4d63.com/gochecknoglobals v0.2.1 // indirect
-	cloud.google.com/go v0.118.0 // indirect
+	cloud.google.com/go v0.118.1 // indirect
 	cloud.google.com/go/auth v0.14.0 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.7 // indirect
 	cloud.google.com/go/compute/metadata v0.6.0 // indirect
