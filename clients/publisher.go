@@ -61,5 +61,5 @@ func (p *Publisher) Publish(ctx context.Context, record opencdc.Record) error {
 func (p *Publisher) Stop() error {
 	p.topic.Stop()
 
-	return p.pubSub.close()
+	return p.close()
 }
