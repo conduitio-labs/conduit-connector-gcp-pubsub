@@ -1,6 +1,7 @@
 module github.com/conduitio-labs/conduit-connector-gcp-pubsub
 
 go 1.24.2
+
 require (
 	cloud.google.com/go/pubsub v1.48.1
 	cloud.google.com/go/pubsublite v1.8.2
