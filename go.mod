@@ -15,7 +15,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.5.1
 	go.uber.org/multierr v1.11.0
-	google.golang.org/api v0.229.0
+	google.golang.org/api v0.230.0
 )
 
 require (
@@ -246,7 +246,7 @@ require (
 	google.golang.org/genproto v0.0.0-20250303144028-a0af3efb3deb // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250313205543-e70fdf4c4cb4 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20250414145226-207652e42e2e // indirect
-	google.golang.org/grpc v1.71.1 // indirect
+	google.golang.org/grpc v1.72.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637 // indirect
