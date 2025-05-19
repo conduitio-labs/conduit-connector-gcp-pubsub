@@ -5,7 +5,7 @@ go 1.24.2
 require (
 	cloud.google.com/go/pubsub v1.49.0
 	cloud.google.com/go/pubsublite v1.8.2
-	github.com/conduitio/conduit-commons v0.5.3
+	github.com/conduitio/conduit-commons v0.5.4
 	github.com/conduitio/conduit-connector-sdk v0.12.0
 	github.com/gammazero/deque v0.2.1
 	github.com/go-playground/validator/v10 v10.26.0
