@@ -15,7 +15,7 @@ require (
 	go.uber.org/goleak v1.3.0
 	go.uber.org/mock v0.5.2
 	go.uber.org/multierr v1.11.0
-	google.golang.org/api v0.245.0
+	google.golang.org/api v0.246.0
 )
 
 require (
